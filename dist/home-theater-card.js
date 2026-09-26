@@ -101,7 +101,9 @@ const en = {
     timeout: "No confirmation from the TV or receiver. Check them and try again.",
     configure: "Configure",
     close: "Close",
-    setup: "Choose the TV and receiver in the visual card editor.",
+    setup: "Choose a Home Theater room in the visual card editor.",
+    withoutIntegration: "Without the Home Theater integration",
+    directHelp: "Bind a TV and receiver directly. Sources are then hidden while the devices are off, and arrow keys always go to the TV.",
     sources: "Sources",
     allSources: "All sources",
     receiverInputs: "Receiver inputs",
@@ -129,7 +131,7 @@ const en = {
     arcHint: "If the receiver stays silent on TV apps, turn on HDMI control (CEC/SIMPLINK) and ARC on both the TV and the receiver, and connect the receiver's ARC output to the TV's ARC/eARC input.",
     tvPowerHint: "Home Assistant cannot turn this TV on yet. Add an automation for the TV's “Device is requested to turn on” trigger that sends a Wake-on-LAN packet.",
     theaterEntity: "Home Theater room",
-    theaterHelp: "Optional. A room from the Home Theater integration shows what is playing, keeps sources while the room is off and sends arrow keys to the active player. The integration then owns the TV, receiver, sources and linked players: set them under Settings → Devices & services → Home Theater → Configure.",
+    theaterHelp: "A room from the Home Theater integration shows what is playing, keeps sources while the room is off and sends arrow keys to the active player. The integration then owns the TV, receiver, sources and linked players: set them under Settings → Devices & services → Home Theater → Configure.",
     integrationSettings: "Home Theater settings",
     room: "Room",
     tvPowerHintTheater: "Home Assistant cannot turn this TV on yet. Add the TV's MAC address under the Home Theater integration's Configure.",
@@ -139,7 +141,7 @@ const en = {
     receiver: "Receiver",
     details: "Details",
     configureHelp: "To choose the TV, receiver, favourite sources and appearance, edit this dashboard, select Edit on this card, and use the visual editor. Save the dashboard to keep your changes; Cancel leaves saved settings unchanged.",
-    editorHelp: "Choose the TV and receiver for this room. Changes are saved with the dashboard.",
+    editorHelp: "Choose the Home Theater room this card shows. Changes are saved with the dashboard.",
     cardTitle: "Title",
     icon: "Icon",
     name: "Name",
@@ -199,7 +201,9 @@ const nb = {
     timeout: "Ingen bekreftelse fra TV-en eller mottakeren. Kontroller dem og prøv igjen.",
     configure: "Konfigurer",
     close: "Lukk",
-    setup: "Velg TV og mottaker i den visuelle korteditoren.",
+    setup: "Velg et hjemmekino-rom i den visuelle korteditoren.",
+    withoutIntegration: "Uten Hjemmekino-integrasjonen",
+    directHelp: "Koble TV og mottaker direkte. Kildene skjules da mens enhetene er av, og piltastene går alltid til TV-en.",
     sources: "Kilder",
     allSources: "Alle kilder",
     receiverInputs: "Innganger på mottakeren",
@@ -227,7 +231,7 @@ const nb = {
     arcHint: "Hvis mottakeren er stille på TV-apper: slå på HDMI-styring (CEC/SIMPLINK) og ARC både på TV-en og mottakeren, og koble mottakerens ARC-utgang til TV-ens ARC/eARC-inngang.",
     tvPowerHint: "Home Assistant kan ikke slå på denne TV-en ennå. Legg til en automasjon for TV-ens utløser «Enheten blir bedt om å slå seg på» som sender en Wake-on-LAN-pakke.",
     theaterEntity: "Hjemmekino-rom",
-    theaterHelp: "Valgfritt. Et rom fra Hjemmekino-integrasjonen viser hva som spilles, beholder kildene mens rommet er av og sender piltastene til spilleren som er i bruk. Integrasjonen eier da TV, mottaker, kilder og koblede spillere: sett dem under Innstillinger → Enheter og tjenester → Hjemmekino → Konfigurer.",
+    theaterHelp: "Et rom fra Hjemmekino-integrasjonen viser hva som spilles, beholder kildene mens rommet er av og sender piltastene til spilleren som er i bruk. Integrasjonen eier da TV, mottaker, kilder og koblede spillere: sett dem under Innstillinger → Enheter og tjenester → Hjemmekino → Konfigurer.",
     integrationSettings: "Innstillinger for hjemmekino",
     room: "Rom",
     tvPowerHintTheater: "Home Assistant kan ikke slå på denne TV-en ennå. Legg inn TV-ens MAC-adresse under Konfigurer for Hjemmekino-integrasjonen.",
@@ -237,7 +241,7 @@ const nb = {
     receiver: "Mottaker",
     details: "Detaljer",
     configureHelp: "For å velge TV, mottaker, favorittkilder og utseende, rediger dashbordet, velg Rediger på dette kortet og bruk den visuelle editoren. Lagre dashbordet for å beholde endringene. Avbryt lar lagrede innstillinger være uendret.",
-    editorHelp: "Velg TV og mottaker for dette rommet. Endringer lagres med dashbordet.",
+    editorHelp: "Velg hjemmekino-rommet dette kortet viser. Endringer lagres med dashbordet.",
     cardTitle: "Tittel",
     icon: "Ikon",
     name: "Navn",
@@ -1040,8 +1044,13 @@ class HomeTheaterCard extends i$1 {
         this.requests.reset();
         this.requestUpdate();
     }
-    static getStubConfig() {
-        return { type: TYPE };
+    /** A new card shows the first Home Theater room; the editor can pick another. */
+    static getStubConfig(hass) {
+        const room = Object.values(hass?.entities ?? {})
+            .filter((e) => e.platform === "home_theater" && e.entity_id.startsWith("media_player."))
+            .map((e) => e.entity_id)
+            .sort()[0];
+        return room ? { type: TYPE, theater: room } : { type: TYPE };
     }
     static async getConfigElement() {
         await Promise.resolve().then(function () { return editor; });
@@ -1129,6 +1138,12 @@ class HomeTheaterCard extends i$1 {
             return undefined;
         return Object.values(entries).find((e) => e.device_id === device &&
             e.platform === "home_theater" && e.entity_id.startsWith("remote."))?.entity_id;
+    }
+    /** The room's device name, as the integration entry named it. */
+    get roomName() {
+        const device = this.room ? this.hass?.entities?.[this.room]?.device_id : undefined;
+        const entry = device ? this.hass?.devices?.[device] : undefined;
+        return text(entry?.name_by_user) ?? text(entry?.name);
     }
     get volumeId() {
         return this.room || this.config.receiver || this.config.tv;
@@ -1532,7 +1547,7 @@ class HomeTheaterCard extends i$1 {
         <div class="heading">
           <ha-icon .icon=${this.config.icon || "mdi:television"}></ha-icon>
           <div class="titles">
-            <h2>${this.config.title || this.t("title")}</h2>
+            <h2>${this.config.title || this.roomName || this.t("title")}</h2>
             <span class="status" aria-live="polite">${configured ? this.status() : A}</span>
           </div>
         </div>
@@ -1713,19 +1728,31 @@ class HomeTheaterEditor extends i$1 {
         const tvSources = sourceList(entityOf(this.hass, this.config.tv));
         const receiverSources = sourceList(entityOf(this.hass, this.config.receiver));
         const room = !!this.config.theater;
-        return b `
-      <p>${this.t("editorHelp")}</p>
-      ${this.player("theater", "theaterEntity")}
-      <small>${this.t("theaterHelp")}</small>
-      ${room ? A : b `${this.player("tv", "tvEntity")}
-      ${this.player("receiver", "receiverEntity")}`}
-      ${!room && this.config.tv && this.config.receiver ? b `<div class="fields">
+        const direct = b `
+      <small>${this.t("directHelp")}</small>
+      ${this.player("tv", "tvEntity")}
+      ${this.player("receiver", "receiverEntity")}
+      ${this.config.tv && this.config.receiver ? b `<div class="fields">
         ${this.choice("tv_input", "tvInput", tvSources, this.config.tv_input, (value) => this.change((c) => { c.tv_input = value; }), "none", "tvInputHelp")}
         ${this.choice("tv_audio", "tvAudio", receiverSources, this.config.tv_audio ?? DEFAULT_TV_AUDIO, (value) => this.change((c) => { if (value === DEFAULT_TV_AUDIO)
             delete c.tv_audio;
         else
             c.tv_audio = value; }), undefined, "tvAudioHelp")}
       </div>` : A}
+      <fieldset>
+        <legend>${this.t("favourites")}</legend>
+        <small>${this.t("favouritesHelp")}</small>
+        ${sources.some((s) => !s.source) ? b `<p class="error" role="alert">${this.t("incomplete")}</p>` : A}
+        ${sources.map((s, i) => this.sourceRow(s, i, sources.length))}
+        <button class="add" data-action="add-source"
+          @click=${() => this.change((c) => {
+            c.sources = [...(c.sources ?? []), { device: c.receiver ? "receiver" : "tv", source: "" }];
+        })}>${this.t("addSource")}</button>
+      </fieldset>`;
+        return b `
+      <p>${this.t("editorHelp")}</p>
+      ${this.player("theater", "theaterEntity")}
+      <small>${this.t("theaterHelp")}</small>
       <div class="fields">
         ${this.text("title", "cardTitle", this.config.title, (value) => this.change((c) => { c.title = value; }))}
         ${this.text("icon", "icon", this.config.icon, (value) => this.change((c) => { c.icon = value; }))}
@@ -1746,16 +1773,10 @@ class HomeTheaterEditor extends i$1 {
           </select>
         </label>
       </div>
-      ${room ? A : b `<fieldset>
-        <legend>${this.t("favourites")}</legend>
-        <small>${this.t("favouritesHelp")}</small>
-        ${sources.some((s) => !s.source) ? b `<p class="error" role="alert">${this.t("incomplete")}</p>` : A}
-        ${sources.map((s, i) => this.sourceRow(s, i, sources.length))}
-        <button class="add" data-action="add-source"
-          @click=${() => this.change((c) => {
-            c.sources = [...(c.sources ?? []), { device: c.receiver ? "receiver" : "tv", source: "" }];
-        })}>${this.t("addSource")}</button>
-      </fieldset>`}
+      ${room ? A : b `<details class="direct" ?open=${!!(this.config.tv || this.config.receiver)}>
+        <summary>${this.t("withoutIntegration")}</summary>
+        ${direct}
+      </details>`}
     `;
     }
 }
@@ -1853,6 +1874,18 @@ HomeTheaterEditor.styles = i$4 `
     .add {
       width: 100%;
       margin-top: 8px;
+    }
+    details.direct {
+      margin-top: 16px;
+      border-top: 1px solid var(--divider-color, #ccc);
+      padding-top: 8px;
+    }
+    summary {
+      cursor: pointer;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      font-weight: 600;
     }
   `;
 if (!customElements.get("home-theater-card-editor"))

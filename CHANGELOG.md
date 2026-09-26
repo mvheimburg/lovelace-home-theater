@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 — 2026-09-26
+
+- A new card is bound to a Home Theater room straight away, and takes the room's name as its title unless you set one.
+- The editor starts with the room; binding a TV and receiver directly moves to a collapsed "Without the Home Theater integration" section.
+
 ## 0.2.0 — 2026-09-26
 
 - Add **Home Theater room**: bind the card to a room from the Home Theater integration (0.2.0 or later) instead of the TV and receiver.

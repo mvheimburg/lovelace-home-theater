@@ -54,6 +54,7 @@ export interface EntityEntry {
 export interface HomeAssistant extends LanguageContext {
   connection?: { connected: boolean };
   entities?: Record<string, EntityEntry>;
+  devices?: Record<string, { name?: string | null; name_by_user?: string | null }>;
   states: Record<string, HassEntity>;
   callService(
     domain: string,

@@ -111,6 +111,18 @@ export class HomeTheaterEditor extends LitElement {
       width: 100%;
       margin-top: 8px;
     }
+    details.direct {
+      margin-top: 16px;
+      border-top: 1px solid var(--divider-color, #ccc);
+      padding-top: 8px;
+    }
+    summary {
+      cursor: pointer;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      font-weight: 600;
+    }
   `;
   hass?: HomeAssistant;
   private config: CardConfig = { type: TYPE };
@@ -224,18 +236,30 @@ export class HomeTheaterEditor extends LitElement {
     const tvSources = sourceList(entityOf(this.hass, this.config.tv));
     const receiverSources = sourceList(entityOf(this.hass, this.config.receiver));
     const room = !!this.config.theater;
-    return html`
-      <p>${this.t("editorHelp")}</p>
-      ${this.player("theater", "theaterEntity")}
-      <small>${this.t("theaterHelp")}</small>
-      ${room ? nothing : html`${this.player("tv", "tvEntity")}
-      ${this.player("receiver", "receiverEntity")}`}
-      ${!room && this.config.tv && this.config.receiver ? html`<div class="fields">
+    const direct = html`
+      <small>${this.t("directHelp")}</small>
+      ${this.player("tv", "tvEntity")}
+      ${this.player("receiver", "receiverEntity")}
+      ${this.config.tv && this.config.receiver ? html`<div class="fields">
         ${this.choice("tv_input", "tvInput", tvSources, this.config.tv_input,
           (value) => this.change((c) => { c.tv_input = value; }), "none", "tvInputHelp")}
         ${this.choice("tv_audio", "tvAudio", receiverSources, this.config.tv_audio ?? DEFAULT_TV_AUDIO,
           (value) => this.change((c) => { if (value === DEFAULT_TV_AUDIO) delete c.tv_audio; else c.tv_audio = value; }), undefined, "tvAudioHelp")}
       </div>` : nothing}
+      <fieldset>
+        <legend>${this.t("favourites")}</legend>
+        <small>${this.t("favouritesHelp")}</small>
+        ${sources.some((s) => !s.source) ? html`<p class="error" role="alert">${this.t("incomplete")}</p>` : nothing}
+        ${sources.map((s, i) => this.sourceRow(s, i, sources.length))}
+        <button class="add" data-action="add-source"
+          @click=${() => this.change((c) => {
+            c.sources = [...(c.sources ?? []), { device: c.receiver ? "receiver" : "tv", source: "" }];
+          })}>${this.t("addSource")}</button>
+      </fieldset>`;
+    return html`
+      <p>${this.t("editorHelp")}</p>
+      ${this.player("theater", "theaterEntity")}
+      <small>${this.t("theaterHelp")}</small>
       <div class="fields">
         ${this.text("title", "cardTitle", this.config.title, (value) => this.change((c) => { c.title = value; }))}
         ${this.text("icon", "icon", this.config.icon, (value) => this.change((c) => { c.icon = value; }))}
@@ -256,16 +280,10 @@ export class HomeTheaterEditor extends LitElement {
           </select>
         </label>
       </div>
-      ${room ? nothing : html`<fieldset>
-        <legend>${this.t("favourites")}</legend>
-        <small>${this.t("favouritesHelp")}</small>
-        ${sources.some((s) => !s.source) ? html`<p class="error" role="alert">${this.t("incomplete")}</p>` : nothing}
-        ${sources.map((s, i) => this.sourceRow(s, i, sources.length))}
-        <button class="add" data-action="add-source"
-          @click=${() => this.change((c) => {
-            c.sources = [...(c.sources ?? []), { device: c.receiver ? "receiver" : "tv", source: "" }];
-          })}>${this.t("addSource")}</button>
-      </fieldset>`}
+      ${room ? nothing : html`<details class="direct" ?open=${!!(this.config.tv || this.config.receiver)}>
+        <summary>${this.t("withoutIntegration")}</summary>
+        ${direct}
+      </details>`}
     `;
   }
 }

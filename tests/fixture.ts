@@ -76,6 +76,8 @@ export function roomFixture(value = "playing"): HomeAssistant {
     "media_player.stue_theater": { entity_id: "media_player.stue_theater", device_id: "room1", platform: "home_theater", translation_key: "theater" },
     "remote.stue_remote": { entity_id: "remote.stue_remote", device_id: "room1", platform: "home_theater", translation_key: "remote" },
     "remote.other": { entity_id: "remote.other", device_id: "room2", platform: "home_theater", translation_key: "remote" },
+    "media_player.stue_2": { entity_id: "media_player.stue_2", device_id: "cast1", platform: "music_assistant" },
   };
+  hass.devices = { room1: { name: "Stue", name_by_user: null }, room2: { name: "Herjerom" } };
   return hass;
 }

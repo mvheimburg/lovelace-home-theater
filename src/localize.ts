@@ -19,7 +19,10 @@ const en = {
   timeout: "No confirmation from the TV or receiver. Check them and try again.",
   configure: "Configure",
   close: "Close",
-  setup: "Choose the TV and receiver in the visual card editor.",
+  setup: "Choose a Home Theater room in the visual card editor.",
+  withoutIntegration: "Without the Home Theater integration",
+  directHelp:
+    "Bind a TV and receiver directly. Sources are then hidden while the devices are off, and arrow keys always go to the TV.",
   sources: "Sources",
   allSources: "All sources",
   receiverInputs: "Receiver inputs",
@@ -50,7 +53,7 @@ const en = {
     "Home Assistant cannot turn this TV on yet. Add an automation for the TV's “Device is requested to turn on” trigger that sends a Wake-on-LAN packet.",
   theaterEntity: "Home Theater room",
   theaterHelp:
-    "Optional. A room from the Home Theater integration shows what is playing, keeps sources while the room is off and sends arrow keys to the active player. The integration then owns the TV, receiver, sources and linked players: set them under Settings → Devices & services → Home Theater → Configure.",
+    "A room from the Home Theater integration shows what is playing, keeps sources while the room is off and sends arrow keys to the active player. The integration then owns the TV, receiver, sources and linked players: set them under Settings → Devices & services → Home Theater → Configure.",
   integrationSettings: "Home Theater settings",
   room: "Room",
   tvPowerHintTheater:
@@ -64,7 +67,7 @@ const en = {
   configureHelp:
     "To choose the TV, receiver, favourite sources and appearance, edit this dashboard, select Edit on this card, and use the visual editor. Save the dashboard to keep your changes; Cancel leaves saved settings unchanged.",
   editorHelp:
-    "Choose the TV and receiver for this room. Changes are saved with the dashboard.",
+    "Choose the Home Theater room this card shows. Changes are saved with the dashboard.",
   cardTitle: "Title",
   icon: "Icon",
   name: "Name",
@@ -128,7 +131,10 @@ const nb: Record<keyof typeof en, string> = {
   timeout: "Ingen bekreftelse fra TV-en eller mottakeren. Kontroller dem og prøv igjen.",
   configure: "Konfigurer",
   close: "Lukk",
-  setup: "Velg TV og mottaker i den visuelle korteditoren.",
+  setup: "Velg et hjemmekino-rom i den visuelle korteditoren.",
+  withoutIntegration: "Uten Hjemmekino-integrasjonen",
+  directHelp:
+    "Koble TV og mottaker direkte. Kildene skjules da mens enhetene er av, og piltastene går alltid til TV-en.",
   sources: "Kilder",
   allSources: "Alle kilder",
   receiverInputs: "Innganger på mottakeren",
@@ -159,7 +165,7 @@ const nb: Record<keyof typeof en, string> = {
     "Home Assistant kan ikke slå på denne TV-en ennå. Legg til en automasjon for TV-ens utløser «Enheten blir bedt om å slå seg på» som sender en Wake-on-LAN-pakke.",
   theaterEntity: "Hjemmekino-rom",
   theaterHelp:
-    "Valgfritt. Et rom fra Hjemmekino-integrasjonen viser hva som spilles, beholder kildene mens rommet er av og sender piltastene til spilleren som er i bruk. Integrasjonen eier da TV, mottaker, kilder og koblede spillere: sett dem under Innstillinger → Enheter og tjenester → Hjemmekino → Konfigurer.",
+    "Et rom fra Hjemmekino-integrasjonen viser hva som spilles, beholder kildene mens rommet er av og sender piltastene til spilleren som er i bruk. Integrasjonen eier da TV, mottaker, kilder og koblede spillere: sett dem under Innstillinger → Enheter og tjenester → Hjemmekino → Konfigurer.",
   integrationSettings: "Innstillinger for hjemmekino",
   room: "Rom",
   tvPowerHintTheater:
@@ -173,7 +179,7 @@ const nb: Record<keyof typeof en, string> = {
   configureHelp:
     "For å velge TV, mottaker, favorittkilder og utseende, rediger dashbordet, velg Rediger på dette kortet og bruk den visuelle editoren. Lagre dashbordet for å beholde endringene. Avbryt lar lagrede innstillinger være uendret.",
   editorHelp:
-    "Velg TV og mottaker for dette rommet. Endringer lagres med dashbordet.",
+    "Velg hjemmekino-rommet dette kortet viser. Endringer lagres med dashbordet.",
   cardTitle: "Tittel",
   icon: "Ikon",
   name: "Navn",

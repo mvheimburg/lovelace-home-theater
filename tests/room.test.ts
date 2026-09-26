@@ -4,7 +4,7 @@ import { HomeTheaterEditor } from "../src/editor";
 import { room, roomFixture } from "./fixture";
 import type { HomeAssistant } from "../src/types";
 afterEach(() => document.body.replaceChildren());
-const CONFIG = { type: "custom:home-theater-card" as const, title: "Stue", theater: "media_player.stue_theater" };
+const CONFIG = { type: "custom:home-theater-card" as const, theater: "media_player.stue_theater" };
 async function mount(hass: HomeAssistant = roomFixture()) {
   const card = new HomeTheaterCard();
   card.setConfig(CONFIG);
@@ -132,4 +132,30 @@ it("hides direct device settings in the editor once a room is chosen", async () 
   expect($(editor, 'ha-selector[data-field="tv"]')).toBeNull();
   expect($(editor, '[data-action="add-source"]')).toBeNull();
   expect($(editor, 'input[name="title"]')).not.toBeNull();
+});
+it("binds a new card to a room and names it after the room", async () => {
+  expect(HomeTheaterCard.getStubConfig(roomFixture())).toEqual({ type: "custom:home-theater-card", theater: "media_player.stue_theater" });
+  expect(HomeTheaterCard.getStubConfig({ ...roomFixture(), entities: {} })).toEqual({ type: "custom:home-theater-card" });
+  const card = await mount();
+  expect($(card, "h2").textContent).toBe("Stue");
+  card.hass = { ...card.hass!, devices: { room1: { name: "Stue", name_by_user: "TV-stua" } } };
+  await settle(card);
+  expect($(card, "h2").textContent).toBe("TV-stua");
+  card.setConfig({ ...CONFIG, title: "Kino" });
+  await settle(card);
+  expect($(card, "h2").textContent).toBe("Kino");
+});
+it("keeps direct device setup behind a collapsed section", async () => {
+  const editor = new HomeTheaterEditor();
+  editor.hass = roomFixture();
+  editor.setConfig({ type: "custom:home-theater-card" });
+  document.body.append(editor);
+  await editor.updateComplete;
+  const details = $<HTMLDetailsElement>(editor, "details.direct");
+  expect(details.open).toBe(false);
+  expect(details.querySelector('ha-selector[data-field="tv"]')).not.toBeNull();
+  expect(editor.shadowRoot!.querySelector("ha-selector")!.getAttribute("data-field")).toBe("theater");
+  editor.setConfig({ type: "custom:home-theater-card", tv: "media_player.tv" });
+  await editor.updateComplete;
+  expect($<HTMLDetailsElement>(editor, "details.direct").open).toBe(true);
 });

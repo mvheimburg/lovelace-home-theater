@@ -8,7 +8,7 @@ Use one card per room instead of a full remote replica. It shows only what a hou
 
 ## With the Home Theater integration
 
-The card works on its own with a TV and a receiver. With the [Home Theater integration](https://github.com/mvheimburg/home-theater) (0.2.0 or later), choose the room's media player as **Home Theater room** in the card editor instead. The card then:
+The card works on its own with a TV and a receiver. With the [Home Theater integration](https://github.com/mvheimburg/home-theater) (0.2.0 or later), each card shows one room: a new card is bound to a room straight away (choose another under **Home Theater room** in the editor) and takes the room's name as its title. The card then:
 
 - shows **what is actually playing**, with the title, series and artwork of the player on the active input (for example a Chromecast or Music Assistant player);
 - keeps the **sources while the room is off**. Home Assistant hides a player's source list while it is off, so a card bound directly to the devices has only its configured favourites then;
@@ -49,9 +49,9 @@ For manual installation, copy `dist/home-theater-card.js` to `/config/www/home-t
 
 Requirements: the **LG webOS TV** integration for the TV and, optionally, a receiver `media_player` such as the **Denon AVR** integration. Tested against Home Assistant 2026.9.
 
-## Set up a room
+## Set up without the integration
 
-Edit the dashboard, add **Home Theater Card**, and use its visual editor to:
+Without the integration, open **Without the Home Theater integration** in the card editor to bind the devices directly. There you can:
 
 - choose the TV (LG webOS media players only) and the AV receiver;
 - choose the **TV input the receiver is connected to** (for example `HDMI 1`) and the **receiver input for the TV's own sound** (usually `TV Audio`), both from the devices' own lists;
@@ -85,7 +85,7 @@ sources:
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `title` | TV | Room title. |
+| `title` | room name, or TV | Room title. |
 | `icon` | `mdi:television` | Header icon. |
 | `theater` | — | A Home Theater integration room (`media_player`). When set, `tv`, `receiver`, `tv_input`, `tv_audio` and `sources` are ignored; the integration owns them. |
 | `tv` | — | LG webOS `media_player`. Arrows need it. |

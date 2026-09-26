@@ -87,8 +87,13 @@ export class HomeTheaterCard extends LitElement {
     this.requests.reset();
     this.requestUpdate();
   }
-  static getStubConfig(): CardConfig {
-    return { type: TYPE };
+  /** A new card shows the first Home Theater room; the editor can pick another. */
+  static getStubConfig(hass?: HomeAssistant): CardConfig {
+    const room = Object.values(hass?.entities ?? {})
+      .filter((e) => e.platform === "home_theater" && e.entity_id.startsWith("media_player."))
+      .map((e) => e.entity_id)
+      .sort()[0];
+    return room ? { type: TYPE, theater: room } : { type: TYPE };
   }
   static async getConfigElement(): Promise<HTMLElement> {
     await import("./editor");
@@ -173,6 +178,12 @@ export class HomeTheaterCard extends LitElement {
     if (!device) return undefined;
     return Object.values(entries!).find((e) => e.device_id === device &&
       e.platform === "home_theater" && e.entity_id.startsWith("remote."))?.entity_id;
+  }
+  /** The room's device name, as the integration entry named it. */
+  private get roomName(): string | undefined {
+    const device = this.room ? this.hass?.entities?.[this.room]?.device_id : undefined;
+    const entry = device ? this.hass?.devices?.[device] : undefined;
+    return text(entry?.name_by_user) ?? text(entry?.name);
   }
   private get volumeId(): string | undefined {
     return this.room || this.config.receiver || this.config.tv;
@@ -552,7 +563,7 @@ export class HomeTheaterCard extends LitElement {
         <div class="heading">
           <ha-icon .icon=${this.config.icon || "mdi:television"}></ha-icon>
           <div class="titles">
-            <h2>${this.config.title || this.t("title")}</h2>
+            <h2>${this.config.title || this.roomName || this.t("title")}</h2>
             <span class="status" aria-live="polite">${configured ? this.status() : nothing}</span>
           </div>
         </div>

@@ -56,7 +56,7 @@ function normalizeConfig(input) {
         throw new ConfigValidationError("invalidType");
     for (const key of ["title", "icon", "tv_input", "tv_audio"])
         optional(c, key);
-    for (const key of ["tv", "receiver"])
+    for (const key of ["theater", "tv", "receiver"])
         if (c[key] !== undefined && (typeof c[key] !== "string" || !PLAYER.test(c[key])))
             throw new ConfigValidationError("invalidPlayer");
     if (c.appearance !== undefined &&
@@ -128,6 +128,12 @@ const en = {
     useReceiver: "Send to receiver",
     arcHint: "If the receiver stays silent on TV apps, turn on HDMI control (CEC/SIMPLINK) and ARC on both the TV and the receiver, and connect the receiver's ARC output to the TV's ARC/eARC input.",
     tvPowerHint: "Home Assistant cannot turn this TV on yet. Add an automation for the TV's “Device is requested to turn on” trigger that sends a Wake-on-LAN packet.",
+    theaterEntity: "Home Theater room",
+    theaterHelp: "Optional. A room from the Home Theater integration shows what is playing, keeps sources while the room is off and sends arrow keys to the active player. The integration then owns the TV, receiver, sources and linked players: set them under Settings → Devices & services → Home Theater → Configure.",
+    integrationSettings: "Home Theater settings",
+    room: "Room",
+    tvPowerHintTheater: "Home Assistant cannot turn this TV on yet. Add the TV's MAC address under the Home Theater integration's Configure.",
+    configureHelpTheater: "Sources, their names and the players linked to them are set in the Home Theater integration. Title and appearance are set in this card's visual editor.",
     devices: "Devices",
     tv: "TV",
     receiver: "Receiver",
@@ -220,6 +226,12 @@ const nb = {
     useReceiver: "Send til mottakeren",
     arcHint: "Hvis mottakeren er stille på TV-apper: slå på HDMI-styring (CEC/SIMPLINK) og ARC både på TV-en og mottakeren, og koble mottakerens ARC-utgang til TV-ens ARC/eARC-inngang.",
     tvPowerHint: "Home Assistant kan ikke slå på denne TV-en ennå. Legg til en automasjon for TV-ens utløser «Enheten blir bedt om å slå seg på» som sender en Wake-on-LAN-pakke.",
+    theaterEntity: "Hjemmekino-rom",
+    theaterHelp: "Valgfritt. Et rom fra Hjemmekino-integrasjonen viser hva som spilles, beholder kildene mens rommet er av og sender piltastene til spilleren som er i bruk. Integrasjonen eier da TV, mottaker, kilder og koblede spillere: sett dem under Innstillinger → Enheter og tjenester → Hjemmekino → Konfigurer.",
+    integrationSettings: "Innstillinger for hjemmekino",
+    room: "Rom",
+    tvPowerHintTheater: "Home Assistant kan ikke slå på denne TV-en ennå. Legg inn TV-ens MAC-adresse under Konfigurer for Hjemmekino-integrasjonen.",
+    configureHelpTheater: "Kilder, navnene deres og spillerne som er koblet til dem, settes i Hjemmekino-integrasjonen. Tittel og utseende settes i kortets visuelle editor.",
     devices: "Enheter",
     tv: "TV",
     receiver: "Mottaker",
@@ -346,13 +358,13 @@ function soundModes(entity) {
     const list = entity?.attributes.sound_mode_list;
     return Array.isArray(list) ? list.filter((s) => typeof s === "string") : [];
 }
-function text(entity, key) {
+function text$1(entity, key) {
     const value = entity?.attributes[key];
     return typeof value === "string" && value ? value : undefined;
 }
-const currentSource = (entity) => text(entity, "source");
-const currentSoundMode = (entity) => text(entity, "sound_mode");
-const soundOutput = (entity) => text(entity, "sound_output");
+const currentSource = (entity) => text$1(entity, "source");
+const currentSoundMode = (entity) => text$1(entity, "sound_mode");
+const soundOutput = (entity) => text$1(entity, "sound_output");
 function tvAudio(config) {
     return config.receiver ? config.tv_audio || DEFAULT_TV_AUDIO : undefined;
 }
@@ -410,10 +422,6 @@ function activeSource(config, hass) {
 }
 function sameSource(a, b) {
     return !!a && a.device === b.device && a.source === b.source;
-}
-/** The player whose volume the room uses: the receiver when there is one. */
-function volumePlayer(config) {
-    return config.receiver || config.tv;
 }
 /** Denon/Marantz map 0..1 onto -80..+18 dB; show the receiver's own dB figure. */
 function volumeDb(entity) {
@@ -525,6 +533,7 @@ const GUESSES = [
     [/plex/i, "mdi:plex"],
     [/twitch/i, "mdi:twitch"],
     [/apple\s*tv|airplay/i, "mdi:apple"],
+    [/chromecast|google\s*tv|\bcast\b/i, "mdi:cast"],
     [/live\s*tv|^tv$|tuner|antenna/i, "mdi:television-classic"],
     [/game|playstation|ps\d|xbox|switch|nintendo/i, "mdi:gamepad-variant-outline"],
     [/cbl|sat|cable|decoder|set.?top/i, "mdi:satellite-variant"],
@@ -535,7 +544,7 @@ const GUESSES = [
     [/\b(radio|fm|am|dab|tuner)\b/i, "mdi:radio"],
     [/heos|online|network|music/i, "mdi:music-box-outline"],
     [/tv audio/i, "mdi:television-speaker"],
-    [/media player|chromecast|shield|fire\s*tv|roku/i, "mdi:play-box-outline"],
+    [/media player|shield|fire\s*tv|roku/i, "mdi:play-box-outline"],
     [/aux|usb/i, "mdi:usb-port"],
     [/hdmi|input|\bav\b/i, "mdi:video-input-hdmi"],
 ];
@@ -791,6 +800,47 @@ const styles = [
     .chip.more {
       color: var(--ht-muted);
     }
+    .now-playing {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      margin: 0 0 12px;
+      padding: 6px;
+      border-radius: 18px;
+      background: var(--ht-pill);
+    }
+    .now-playing img {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 12px;
+      flex: none;
+    }
+    .now-playing > ha-icon {
+      width: 64px;
+      height: 64px;
+      --mdc-icon-size: 32px;
+      color: var(--ht-muted);
+      flex: none;
+    }
+    .now-playing strong {
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .controls-row {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 16px;
+    }
+    .action.primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: color-mix(in srgb, var(--ht-accent) 22%, var(--ht-pill));
+    }
     .controls {
       display: flex;
       align-items: center;
@@ -952,6 +1002,7 @@ const styles = [
   `,
 ];
 
+/** Keys: the room remote's command, then the webOS button for direct mode. */
 const DPAD = [
     ["up", "UP", "mdi:chevron-up"],
     ["left", "LEFT", "mdi:chevron-left"],
@@ -959,12 +1010,19 @@ const DPAD = [
     ["right", "RIGHT", "mdi:chevron-right"],
     ["down", "DOWN", "mdi:chevron-down"],
 ];
+const INTEGRATION_PAGE = "/config/integrations/integration/home_theater";
+function strings(value) {
+    return Array.isArray(value) ? value.filter((s) => typeof s === "string") : [];
+}
+function text(value) {
+    return typeof value === "string" && value ? value : undefined;
+}
 class HomeTheaterCard extends i$1 {
     constructor() {
         super(...arguments);
         this.config = { type: TYPE };
         this.waiters = new Set();
-        this.requests = new Requests(() => this.requestUpdate(), 30000);
+        this.requests = new Requests(() => this.requestUpdate(), 60000);
     }
     setConfig(input) {
         this.close();
@@ -990,7 +1048,7 @@ class HomeTheaterCard extends i$1 {
         return document.createElement("home-theater-card-editor");
     }
     getCardSize() {
-        return roomOn(this.config, this.hass) ? 7 : 3;
+        return this.on ? 7 : 3;
     }
     t(key) {
         return t$1(this.hass, key);
@@ -1046,9 +1104,55 @@ class HomeTheaterCard extends i$1 {
         }
         this.waiters.clear();
     }
+    // ----- which entities the card works with
+    /** The integration's room media player, when the card is bound to one. */
+    get room() {
+        return this.config.theater;
+    }
     entity(id) {
         return entityOf(this.hass, id);
     }
+    roomAttr(key) {
+        return this.entity(this.room)?.attributes[key];
+    }
+    get tvId() {
+        return this.room ? text(this.roomAttr("tv")) : this.config.tv;
+    }
+    get receiverId() {
+        return this.room ? text(this.roomAttr("receiver")) : this.config.receiver;
+    }
+    /** The room's remote, found beside its media player on the same device. */
+    get remoteId() {
+        const entries = this.hass?.entities;
+        const device = this.room ? entries?.[this.room]?.device_id : undefined;
+        if (!device)
+            return undefined;
+        return Object.values(entries).find((e) => e.device_id === device &&
+            e.platform === "home_theater" && e.entity_id.startsWith("remote."))?.entity_id;
+    }
+    get volumeId() {
+        return this.room || this.config.receiver || this.config.tv;
+    }
+    get configured() {
+        return !!(this.room || this.config.tv || this.config.receiver);
+    }
+    get on() {
+        return this.room ? isOn(this.entity(this.room)) : roomOn(this.config, this.hass);
+    }
+    get anyAvailable() {
+        return this.room
+            ? available(this.hass, this.room)
+            : available(this.hass, this.config.tv) || available(this.hass, this.config.receiver);
+    }
+    canTurnOnTv() {
+        return this.room
+            ? this.roomAttr("can_turn_on_tv") === true
+            : supports(this.entity(this.config.tv), Feature.TURN_ON);
+    }
+    audioProblem() {
+        return this.room ? this.roomAttr("audio_problem") === true : arcProblem(this.config, this.hass);
+    }
+    // ----- requests
     call(domain, service, data) {
         return () => this.hass.callService(domain, service, data);
     }
@@ -1063,23 +1167,23 @@ class HomeTheaterCard extends i$1 {
             ? this.requests.pending("power") || this.requests.pending("source")
             : this.requests.pending(key);
     }
-    sourceName(source) {
-        return source.name || source.source;
-    }
-    canTurnOnTv() {
-        return supports(this.entity(this.config.tv), Feature.TURN_ON);
-    }
+    // ----- power
     powerEnabled() {
-        const { tv, receiver } = this.config;
-        if (this.busy("power") || (!available(this.hass, tv) && !available(this.hass, receiver)))
+        if (this.busy("power") || !this.anyAvailable)
             return false;
-        if (roomOn(this.config, this.hass))
+        if (this.room || this.on)
             return true;
-        return available(this.hass, receiver) || (available(this.hass, tv) && this.canTurnOnTv());
+        return available(this.hass, this.config.receiver) ||
+            (available(this.hass, this.config.tv) && this.canTurnOnTv());
     }
     togglePower() {
+        const on = this.on;
+        const room = this.room;
+        if (room) {
+            this.send("power", (s) => isOn(s[room]) !== on, [this.call("media_player", on ? "turn_off" : "turn_on", { entity_id: room })]);
+            return;
+        }
         const { tv, receiver } = this.config;
-        const on = roomOn(this.config, this.hass);
         const steps = [];
         if (on) {
             for (const id of [tv, receiver])
@@ -1094,6 +1198,32 @@ class HomeTheaterCard extends i$1 {
             steps.push(this.call("media_player", "turn_on", { entity_id: tv }));
         const target = receiver && available(this.hass, receiver) ? receiver : tv;
         this.send("power", (s) => isOn(s[target]), steps);
+    }
+    // ----- sources
+    chips(all) {
+        const room = this.room;
+        if (room) {
+            const entity = this.entity(room);
+            const labels = strings(all ? this.roomAttr("all_sources") : this.roomAttr("sources"));
+            const list = labels.length || all ? labels : strings(entity?.attributes.source_list);
+            const current = this.on ? text(entity?.attributes.source) : undefined;
+            const enabled = available(this.hass, room) && !this.busy("source");
+            return list.map((label) => ({
+                key: label, label, source: label,
+                icon: sourceIcon({ device: "tv", source: label }),
+                active: label === current, enabled,
+                select: () => this.send("source", (s) => s[room]?.attributes.source === label, [this.call("media_player", "select_source", { entity_id: room, source: label })]),
+            }));
+        }
+        const active = this.on ? activeSource(this.config, this.hass) : undefined;
+        const list = all
+            ? allSources(this.config, this.hass).map((s) => this.config.sources?.find((f) => sameSource(s, f)) ?? s)
+            : favourites(this.config, this.hass);
+        return list.map((s) => ({
+            key: `${s.device}:${s.source}`, label: s.name || s.source, source: s.source, device: s.device,
+            icon: s.icon || sourceIcon(s), active: sameSource(active, s),
+            enabled: this.sourceEnabled(s), select: () => this.selectSource(s),
+        }));
     }
     sourceEnabled(source) {
         if (this.busy("source"))
@@ -1145,41 +1275,53 @@ class HomeTheaterCard extends i$1 {
         this.send("source", (s) => s[tv]?.attributes.source === source.source &&
             (!withReceiver || s[receiver]?.attributes.source === audio), steps);
     }
-    press(button) {
-        const tv = this.config.tv;
-        if (!tv || !available(this.hass, tv))
+    // ----- remote keys, volume, sound
+    dpadTarget() {
+        if (this.room)
+            return this.on && available(this.hass, this.remoteId) ? this.remoteId : undefined;
+        return isOn(this.entity(this.config.tv)) ? this.config.tv : undefined;
+    }
+    press(command, button) {
+        const target = this.dpadTarget();
+        if (!target || !available(this.hass, target))
             return;
-        this.send("dpad", accepted, [this.call("webostv", "button", { entity_id: tv, button })]);
+        this.send("dpad", accepted, [this.room
+                ? this.call("remote", "send_command", { entity_id: target, command })
+                : this.call("webostv", "button", { entity_id: target, button })]);
+    }
+    volumeEnabled() {
+        const id = this.volumeId;
+        return available(this.hass, id) && isOn(this.entity(id)) && supports(this.entity(id), Feature.VOLUME_STEP);
     }
     volume(direction) {
-        const id = volumePlayer(this.config);
+        const id = this.volumeId;
         if (!id || !this.volumeEnabled())
             return;
         this.send("volume", accepted, [this.call("media_player", `volume_${direction}`, { entity_id: id })]);
     }
     toggleMute() {
-        const id = volumePlayer(this.config);
+        const id = this.volumeId;
         if (!id || !this.volumeEnabled())
             return;
         const target = !muted(this.entity(id));
         this.send("mute", (s) => muted(s[id]) === target, [this.call("media_player", "volume_mute", { entity_id: id, is_volume_muted: target })]);
     }
-    volumeEnabled() {
-        const id = volumePlayer(this.config);
-        return available(this.hass, id) && isOn(this.entity(id)) && supports(this.entity(id), Feature.VOLUME_STEP);
-    }
     selectSoundMode(mode) {
-        const id = this.config.receiver;
+        const id = this.receiverId;
         if (!id || !available(this.hass, id))
             return;
         this.send("sound_mode", (s) => s[id]?.attributes.sound_mode === mode, [this.call("media_player", "select_sound_mode", { entity_id: id, sound_mode: mode })]);
     }
     useReceiver() {
-        const tv = this.config.tv;
+        const room = this.room;
+        const tv = this.tvId;
         if (!tv || !available(this.hass, tv))
             return;
-        this.send("output", (s) => s[tv]?.attributes.sound_output === RECEIVER_OUTPUT, [this.call("webostv", "select_sound_output", { entity_id: tv, sound_output: RECEIVER_OUTPUT })]);
+        this.send("output", (s) => s[tv]?.attributes.sound_output === RECEIVER_OUTPUT, [room
+                ? this.call("home_theater", "use_receiver", { entity_id: room })
+                : this.call("webostv", "select_sound_output", { entity_id: tv, sound_output: RECEIVER_OUTPUT })]);
     }
+    // ----- dialogs and navigation
     open(kind, event) {
         this.trigger = event.currentTarget;
         this.dialogKind = kind;
@@ -1203,23 +1345,31 @@ class HomeTheaterCard extends i$1 {
             composed: true,
         }));
     }
+    openIntegration() {
+        this.close();
+        history.pushState(null, "", INTEGRATION_PAGE);
+        window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+    }
+    // ----- rendering
     status() {
-        const { tv, receiver } = this.config;
-        if (!available(this.hass, tv) && !available(this.hass, receiver))
+        if (!this.anyAvailable)
             return this.t("unavailable");
         if (this.requests.pending("power") || this.requests.pending("source"))
             return this.t("pending");
-        if (!roomOn(this.config, this.hass))
+        if (!this.on)
             return this.t("off");
-        const active = activeSource(this.config, this.hass);
-        const known = active && favourites(this.config, this.hass).find((s) => sameSource(active, s));
-        const parts = [known ? this.sourceName(known) : active?.source ?? this.t("on")];
-        const player = this.entity(volumePlayer(this.config));
+        const active = this.chips(false).find((c) => c.active) ?? this.chips(true).find((c) => c.active);
+        const parts = [];
+        if (this.room)
+            parts.push(text(this.roomAttr("source")) ?? this.t("on"));
+        else
+            parts.push(active?.label ?? activeSource(this.config, this.hass)?.source ?? this.t("on"));
+        const player = this.entity(this.volumeId);
         if (isOn(player)) {
-            const db = volumeDb(player);
+            const db = this.receiverId ? volumeDb(player) : undefined;
             if (muted(player))
                 parts.push(this.t("muted"));
-            else if (this.config.receiver && db !== undefined)
+            else if (db !== undefined)
                 parts.push(formatDb(this.hass, db));
         }
         return parts.join(" · ");
@@ -1234,7 +1384,7 @@ class HomeTheaterCard extends i$1 {
             : A;
     }
     arcWarning() {
-        if (!arcProblem(this.config, this.hass))
+        if (!this.audioProblem())
             return A;
         return b `<div class="warning" role="status">
       <ha-icon .icon=${"mdi:speaker-off"}></ha-icon>
@@ -1243,25 +1393,38 @@ class HomeTheaterCard extends i$1 {
         @click=${() => this.useReceiver()}>${this.t("useReceiver")}</button>
     </div>`;
     }
-    chip(source, active) {
-        const name = this.sourceName(source);
-        return b `<button class="chip" data-action="source" data-device=${source.device}
-      data-source=${source.source} aria-pressed=${String(active)}
-      aria-label=${active ? `${this.t("playing")}: ${name}` : `${this.t("switchTo")} ${name}`}
-      title=${name} ?disabled=${!this.sourceEnabled(source)}
-      @click=${() => this.selectSource(source)}>
-      <ha-icon .icon=${source.icon || sourceIcon(source)}></ha-icon>
-      <span>${name}</span>
+    nowPlaying() {
+        if (!this.room || !this.on)
+            return A;
+        const attributes = this.entity(this.room)?.attributes ?? {};
+        const title = text(attributes.media_title);
+        if (!title)
+            return A;
+        const episode = [text(attributes.media_series_title), text(attributes.media_artist), text(attributes.app_name)]
+            .find((value) => value);
+        const picture = text(attributes.entity_picture);
+        return b `<div class="now-playing" data-now-playing>
+      ${picture ? b `<img src=${picture} alt="" />` : b `<ha-icon .icon=${"mdi:play-circle-outline"}></ha-icon>`}
+      <div class="titles"><strong>${title}</strong>${episode ? b `<span class="status">${episode}</span>` : A}</div>
+    </div>`;
+    }
+    chip(chip) {
+        return b `<button class="chip" data-action="source" data-device=${chip.device ?? "room"}
+      data-source=${chip.source} aria-pressed=${String(chip.active)}
+      aria-label=${chip.active ? `${this.t("playing")}: ${chip.label}` : `${this.t("switchTo")} ${chip.label}`}
+      title=${chip.label} ?disabled=${!chip.enabled}
+      @click=${() => chip.select()}>
+      <ha-icon .icon=${chip.icon}></ha-icon>
+      <span>${chip.label}</span>
     </button>`;
     }
     sources() {
-        const list = favourites(this.config, this.hass);
-        const active = roomOn(this.config, this.hass) ? activeSource(this.config, this.hass) : undefined;
-        const more = allSources(this.config, this.hass).length > list.length;
+        const list = this.chips(false);
+        const more = this.chips(true).some((c) => !list.some((f) => f.key === c.key));
         if (!list.length && !more)
             return A;
         return b `<div class="sources" role="group" aria-label=${this.t("sources")}>
-      ${list.map((s) => this.chip(s, sameSource(active, s)))}
+      ${list.map((c) => this.chip(c))}
       ${more ? b `<button class="chip more" data-action="all-sources" title=${this.t("allSources")}
         @click=${(e) => this.open("sources", e)}>
         <ha-icon .icon=${"mdi:dots-horizontal"}></ha-icon><span>${this.t("allSources")}</span>
@@ -1269,31 +1432,30 @@ class HomeTheaterCard extends i$1 {
     </div>`;
     }
     dpad() {
-        const tv = this.config.tv;
-        if (!tv || !isOn(this.entity(tv)))
+        const target = this.dpadTarget();
+        if (!target)
             return A;
-        const disabled = !available(this.hass, tv);
+        const disabled = !available(this.hass, target);
         return b `<div class="navigation" role="group" aria-label=${this.t("navigation")}>
       <div class="dpad">
         ${DPAD.map(([key, button, icon]) => b `<button class=${`pad ${key}`} data-action=${`dpad-${key}`}
           aria-label=${this.t(key)} title=${this.t(key)} ?disabled=${disabled}
-          @click=${() => this.press(button)}>${icon ? b `<ha-icon .icon=${icon}></ha-icon>` : this.t("ok")}</button>`)}
+          @click=${() => this.press(key, button)}>${icon ? b `<ha-icon .icon=${icon}></ha-icon>` : this.t("ok")}</button>`)}
       </div>
       <div class="nav-keys">
         <button class="round" data-action="dpad-back" aria-label=${this.t("back")} title=${this.t("back")}
-          ?disabled=${disabled} @click=${() => this.press("BACK")}><ha-icon .icon=${"mdi:arrow-u-left-top"}></ha-icon></button>
+          ?disabled=${disabled} @click=${() => this.press("back", "BACK")}><ha-icon .icon=${"mdi:arrow-u-left-top"}></ha-icon></button>
         <button class="round" data-action="dpad-home" aria-label=${this.t("home")} title=${this.t("home")}
-          ?disabled=${disabled} @click=${() => this.press("HOME")}><ha-icon .icon=${"mdi:home-outline"}></ha-icon></button>
+          ?disabled=${disabled} @click=${() => this.press("home", "HOME")}><ha-icon .icon=${"mdi:home-outline"}></ha-icon></button>
       </div>
     </div>`;
     }
     volumeControls() {
-        const id = volumePlayer(this.config);
-        const player = this.entity(id);
+        const player = this.entity(this.volumeId);
         if (!isOn(player) || !supports(player, Feature.VOLUME_STEP))
             return A;
         const enabled = this.volumeEnabled();
-        const db = this.config.receiver ? volumeDb(player) : undefined;
+        const db = this.receiverId ? volumeDb(player) : undefined;
         const isMuted = muted(player);
         return b `<div class="volume" role="group" aria-label=${this.t("volume")}>
       <button class="round" data-action="volume-up" aria-label=${this.t("volumeUp")} title=${this.t("volumeUp")}
@@ -1308,24 +1470,23 @@ class HomeTheaterCard extends i$1 {
     </div>`;
     }
     sourcesDialog() {
-        const active = roomOn(this.config, this.hass) ? activeSource(this.config, this.hass) : undefined;
-        const all = allSources(this.config, this.hass);
+        const all = this.chips(true);
+        if (this.room)
+            return b `<div class="sources">${all.map((c) => this.chip(c))}</div>`;
         const group = (device, label) => {
-            const list = all.filter((s) => s.device === device);
+            const list = all.filter((c) => c.device === device);
             return list.length ? b `<h3>${this.t(label)}</h3>
-        <div class="sources">${list.map((s) => {
-                const named = this.config.sources?.find((f) => sameSource(s, f)) ?? s;
-                return this.chip(named, sameSource(active, s));
-            })}</div>` : A;
+        <div class="sources">${list.map((c) => this.chip(c))}</div>` : A;
         };
         return b `${group("receiver", "receiverInputs")}${group("tv", "tvSources")}`;
     }
     configureDialog() {
-        const { tv, receiver } = this.config;
+        const tv = this.tvId;
+        const receiver = this.receiverId;
         const receiverEntity = this.entity(receiver);
         const modes = soundModes(receiverEntity);
         const mode = currentSoundMode(receiverEntity);
-        const output = soundOutput(this.entity(tv));
+        const output = this.room ? text(this.roomAttr("tv_sound_output")) : soundOutput(this.entity(tv));
         const device = (id, label) => id ? b `<div class="device">
       <span><strong>${this.t(label)}</strong><span class="status">${available(this.hass, id)
             ? this.t(isOn(this.entity(id)) ? "on" : "off") : this.t("unavailable")}</span></span>
@@ -1342,9 +1503,11 @@ class HomeTheaterCard extends i$1 {
         <p class="status" data-output=${output ?? ""}>${output ? outputLabel(this.hass, output) : this.t(isOn(this.entity(tv)) ? "unavailable" : "off")}</p>
         ${this.arcWarning()}
         <p class="hint">${this.t("arcHint")}</p>` : A}
-      ${tv && this.entity(tv) && !this.canTurnOnTv() ? b `<p class="hint" data-hint="tv-power">${this.t("tvPowerHint")}</p>` : A}
-      ${tv || receiver ? b `<h3>${this.t("devices")}</h3>${device(tv, "tv")}${device(receiver, "receiver")}` : A}
-      <p class="hint">${this.t("configureHelp")}</p>`;
+      ${tv && this.entity(tv) && !this.canTurnOnTv() ? b `<p class="hint" data-hint="tv-power">${this.t(this.room ? "tvPowerHintTheater" : "tvPowerHint")}</p>` : A}
+      ${this.configured ? b `<h3>${this.t("devices")}</h3>${device(this.room, "room")}${device(tv, "tv")}${device(receiver, "receiver")}` : A}
+      ${this.room ? b `<div class="controls-row"><button class="action primary" data-action="integration"
+        @click=${() => this.openIntegration()}><ha-icon .icon=${"mdi:cog-outline"}></ha-icon>${this.t("integrationSettings")}</button></div>` : A}
+      <p class="hint">${this.t(this.room ? "configureHelpTheater" : "configureHelp")}</p>`;
     }
     dialog() {
         if (!this.dialogKind)
@@ -1362,9 +1525,8 @@ class HomeTheaterCard extends i$1 {
     </dialog>`;
     }
     render() {
-        const { tv, receiver } = this.config;
-        const on = roomOn(this.config, this.hass);
-        const configured = !!(tv || receiver);
+        const on = this.on;
+        const configured = this.configured;
         return b `<ha-card data-state=${on ? "on" : "off"}>
       <header>
         <div class="heading">
@@ -1385,6 +1547,7 @@ class HomeTheaterCard extends i$1 {
       </header>
       ${this.error()}
       ${!configured ? b `<p class="hint">${this.t("setup")}</p>` : b `
+        ${this.nowPlaying()}
         ${this.arcWarning()}
         ${this.sources()}
         ${on ? b `<div class="controls">${this.dpad()}${this.volumeControls()}</div>` : A}`}
@@ -1449,7 +1612,7 @@ class HomeTheaterEditor extends i$1 {
     change(update) {
         const next = structuredClone(this.config);
         update(next);
-        for (const key of ["title", "icon", "tv", "receiver", "tv_input", "tv_audio"])
+        for (const key of ["title", "icon", "theater", "tv", "receiver", "tv_input", "tv_audio"])
             if (next[key] === "" || next[key] === undefined)
                 delete next[key];
         this.config = next;
@@ -1486,8 +1649,9 @@ class HomeTheaterEditor extends i$1 {
     </label>`;
     }
     player(key, label) {
+        const filter = { theater: { integration: "home_theater" }, tv: { integration: "webostv" }, receiver: {} }[key];
         return b `<ha-selector data-field=${key} .hass=${this.hass}
-      .selector=${{ entity: key === "tv" ? { domain: "media_player", integration: "webostv" } : { domain: "media_player" } }}
+      .selector=${{ entity: { domain: "media_player", ...filter } }}
       .value=${this.config[key] || undefined} .label=${this.t(label)}
       @value-changed=${(e) => {
             e.stopPropagation();
@@ -1548,11 +1712,14 @@ class HomeTheaterEditor extends i$1 {
         const sources = this.config.sources ?? [];
         const tvSources = sourceList(entityOf(this.hass, this.config.tv));
         const receiverSources = sourceList(entityOf(this.hass, this.config.receiver));
+        const room = !!this.config.theater;
         return b `
       <p>${this.t("editorHelp")}</p>
-      ${this.player("tv", "tvEntity")}
-      ${this.player("receiver", "receiverEntity")}
-      ${this.config.tv && this.config.receiver ? b `<div class="fields">
+      ${this.player("theater", "theaterEntity")}
+      <small>${this.t("theaterHelp")}</small>
+      ${room ? A : b `${this.player("tv", "tvEntity")}
+      ${this.player("receiver", "receiverEntity")}`}
+      ${!room && this.config.tv && this.config.receiver ? b `<div class="fields">
         ${this.choice("tv_input", "tvInput", tvSources, this.config.tv_input, (value) => this.change((c) => { c.tv_input = value; }), "none", "tvInputHelp")}
         ${this.choice("tv_audio", "tvAudio", receiverSources, this.config.tv_audio ?? DEFAULT_TV_AUDIO, (value) => this.change((c) => { if (value === DEFAULT_TV_AUDIO)
             delete c.tv_audio;
@@ -1579,7 +1746,7 @@ class HomeTheaterEditor extends i$1 {
           </select>
         </label>
       </div>
-      <fieldset>
+      ${room ? A : b `<fieldset>
         <legend>${this.t("favourites")}</legend>
         <small>${this.t("favouritesHelp")}</small>
         ${sources.some((s) => !s.source) ? b `<p class="error" role="alert">${this.t("incomplete")}</p>` : A}
@@ -1588,7 +1755,7 @@ class HomeTheaterEditor extends i$1 {
           @click=${() => this.change((c) => {
             c.sources = [...(c.sources ?? []), { device: c.receiver ? "receiver" : "tv", source: "" }];
         })}>${this.t("addSource")}</button>
-      </fieldset>
+      </fieldset>`}
     `;
     }
 }

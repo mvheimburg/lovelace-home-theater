@@ -20,6 +20,8 @@ export interface CardConfig {
   type: "custom:home-theater-card";
   title?: string;
   icon?: string;
+  /** A room from the Home Theater integration; it then owns devices and sources. */
+  theater?: string;
   /** LG webOS TV media player. */
   tv?: string;
   /** AV receiver media player (for example Denon AVR). */
@@ -42,8 +44,16 @@ export interface LanguageContext {
   language?: string;
   locale?: { language?: string; number_format?: string; time_format?: string };
 }
+/** The entity registry entries HA's frontend keeps in hass.entities. */
+export interface EntityEntry {
+  entity_id: string;
+  device_id?: string | null;
+  platform?: string;
+  translation_key?: string | null;
+}
 export interface HomeAssistant extends LanguageContext {
   connection?: { connected: boolean };
+  entities?: Record<string, EntityEntry>;
   states: Record<string, HassEntity>;
   callService(
     domain: string,

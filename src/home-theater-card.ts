@@ -25,7 +25,6 @@ import {
   supports,
   tvAudio,
   volumeDb,
-  volumePlayer,
 } from "./model";
 import { Requests, accepted, type Confirm } from "./requests";
 import { sourceIcon } from "./icons";
@@ -38,6 +37,18 @@ interface Waiter {
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
 }
+/** A source chip, whichever way the card is bound. */
+interface Chip {
+  key: string;
+  label: string;
+  icon: string;
+  device?: string;
+  source: string;
+  active: boolean;
+  enabled: boolean;
+  select: () => void;
+}
+/** Keys: the room remote's command, then the webOS button for direct mode. */
 const DPAD = [
   ["up", "UP", "mdi:chevron-up"],
   ["left", "LEFT", "mdi:chevron-left"],
@@ -45,6 +56,13 @@ const DPAD = [
   ["right", "RIGHT", "mdi:chevron-right"],
   ["down", "DOWN", "mdi:chevron-down"],
 ] as const;
+const INTEGRATION_PAGE = "/config/integrations/integration/home_theater";
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((s): s is string => typeof s === "string") : [];
+}
+function text(value: unknown): string | undefined {
+  return typeof value === "string" && value ? value : undefined;
+}
 export class HomeTheaterCard extends LitElement {
   static styles = styles;
   static properties = { hass: { attribute: false } };
@@ -54,7 +72,7 @@ export class HomeTheaterCard extends LitElement {
   private dialogKind?: "sources" | "configure";
   private trigger?: HTMLElement;
   private waiters = new Set<Waiter>();
-  private requests = new Requests(() => this.requestUpdate(), 30000);
+  private requests = new Requests(() => this.requestUpdate(), 60000);
   setConfig(input: unknown): void {
     this.close();
     this.configError = undefined;
@@ -77,7 +95,7 @@ export class HomeTheaterCard extends LitElement {
     return document.createElement("home-theater-card-editor");
   }
   getCardSize(): number {
-    return roomOn(this.config, this.hass) ? 7 : 3;
+    return this.on ? 7 : 3;
   }
   private t(key: TextKey): string {
     return t(this.hass, key);
@@ -130,9 +148,56 @@ export class HomeTheaterCard extends LitElement {
     }
     this.waiters.clear();
   }
+  // ----- which entities the card works with
+
+  /** The integration's room media player, when the card is bound to one. */
+  private get room(): string | undefined {
+    return this.config.theater;
+  }
   private entity(id?: string) {
     return entityOf(this.hass, id);
   }
+  private roomAttr(key: string): unknown {
+    return this.entity(this.room)?.attributes[key];
+  }
+  private get tvId(): string | undefined {
+    return this.room ? text(this.roomAttr("tv")) : this.config.tv;
+  }
+  private get receiverId(): string | undefined {
+    return this.room ? text(this.roomAttr("receiver")) : this.config.receiver;
+  }
+  /** The room's remote, found beside its media player on the same device. */
+  private get remoteId(): string | undefined {
+    const entries = this.hass?.entities;
+    const device = this.room ? entries?.[this.room]?.device_id : undefined;
+    if (!device) return undefined;
+    return Object.values(entries!).find((e) => e.device_id === device &&
+      e.platform === "home_theater" && e.entity_id.startsWith("remote."))?.entity_id;
+  }
+  private get volumeId(): string | undefined {
+    return this.room || this.config.receiver || this.config.tv;
+  }
+  private get configured(): boolean {
+    return !!(this.room || this.config.tv || this.config.receiver);
+  }
+  private get on(): boolean {
+    return this.room ? isOn(this.entity(this.room)) : roomOn(this.config, this.hass);
+  }
+  private get anyAvailable(): boolean {
+    return this.room
+      ? available(this.hass, this.room)
+      : available(this.hass, this.config.tv) || available(this.hass, this.config.receiver);
+  }
+  private canTurnOnTv(): boolean {
+    return this.room
+      ? this.roomAttr("can_turn_on_tv") === true
+      : supports(this.entity(this.config.tv), Feature.TURN_ON);
+  }
+  private audioProblem(): boolean {
+    return this.room ? this.roomAttr("audio_problem") === true : arcProblem(this.config, this.hass);
+  }
+  // ----- requests
+
   private call(domain: string, service: string, data: Record<string, unknown>): Step {
     return () => this.hass!.callService(domain, service, data);
   }
@@ -146,21 +211,23 @@ export class HomeTheaterCard extends LitElement {
       ? this.requests.pending("power") || this.requests.pending("source")
       : this.requests.pending(key);
   }
-  private sourceName(source: SourceConfig): string {
-    return source.name || source.source;
-  }
-  private canTurnOnTv(): boolean {
-    return supports(this.entity(this.config.tv), Feature.TURN_ON);
-  }
+  // ----- power
+
   private powerEnabled(): boolean {
-    const { tv, receiver } = this.config;
-    if (this.busy("power") || (!available(this.hass, tv) && !available(this.hass, receiver))) return false;
-    if (roomOn(this.config, this.hass)) return true;
-    return available(this.hass, receiver) || (available(this.hass, tv) && this.canTurnOnTv());
+    if (this.busy("power") || !this.anyAvailable) return false;
+    if (this.room || this.on) return true;
+    return available(this.hass, this.config.receiver) ||
+      (available(this.hass, this.config.tv) && this.canTurnOnTv());
   }
   private togglePower(): void {
+    const on = this.on;
+    const room = this.room;
+    if (room) {
+      this.send("power", (s) => isOn(s[room]) !== on,
+        [this.call("media_player", on ? "turn_off" : "turn_on", { entity_id: room })]);
+      return;
+    }
     const { tv, receiver } = this.config;
-    const on = roomOn(this.config, this.hass);
     const steps: Step[] = [];
     if (on) {
       for (const id of [tv, receiver])
@@ -172,6 +239,34 @@ export class HomeTheaterCard extends LitElement {
     if (tv && this.canTurnOnTv()) steps.push(this.call("media_player", "turn_on", { entity_id: tv }));
     const target = receiver && available(this.hass, receiver) ? receiver : tv!;
     this.send("power", (s) => isOn(s[target]), steps);
+  }
+  // ----- sources
+
+  private chips(all: boolean): Chip[] {
+    const room = this.room;
+    if (room) {
+      const entity = this.entity(room);
+      const labels = strings(all ? this.roomAttr("all_sources") : this.roomAttr("sources"));
+      const list = labels.length || all ? labels : strings(entity?.attributes.source_list);
+      const current = this.on ? text(entity?.attributes.source) : undefined;
+      const enabled = available(this.hass, room) && !this.busy("source");
+      return list.map((label) => ({
+        key: label, label, source: label,
+        icon: sourceIcon({ device: "tv", source: label }),
+        active: label === current, enabled,
+        select: () => this.send("source", (s) => s[room]?.attributes.source === label,
+          [this.call("media_player", "select_source", { entity_id: room, source: label })]),
+      }));
+    }
+    const active = this.on ? activeSource(this.config, this.hass) : undefined;
+    const list = all
+      ? allSources(this.config, this.hass).map((s) => this.config.sources?.find((f) => sameSource(s, f)) ?? s)
+      : favourites(this.config, this.hass);
+    return list.map((s) => ({
+      key: `${s.device}:${s.source}`, label: s.name || s.source, source: s.source, device: s.device,
+      icon: s.icon || sourceIcon(s), active: sameSource(active, s),
+      enabled: this.sourceEnabled(s), select: () => this.selectSource(s),
+    }));
   }
   private sourceEnabled(source: SourceConfig): boolean {
     if (this.busy("source")) return false;
@@ -218,39 +313,52 @@ export class HomeTheaterCard extends LitElement {
       s[tv!]?.attributes.source === source.source &&
       (!withReceiver || s[receiver!]?.attributes.source === audio), steps);
   }
-  private press(button: string): void {
-    const tv = this.config.tv;
-    if (!tv || !available(this.hass, tv)) return;
-    this.send("dpad", accepted, [this.call("webostv", "button", { entity_id: tv, button })]);
+  // ----- remote keys, volume, sound
+
+  private dpadTarget(): string | undefined {
+    if (this.room) return this.on && available(this.hass, this.remoteId) ? this.remoteId : undefined;
+    return isOn(this.entity(this.config.tv)) ? this.config.tv : undefined;
+  }
+  private press(command: string, button: string): void {
+    const target = this.dpadTarget();
+    if (!target || !available(this.hass, target)) return;
+    this.send("dpad", accepted, [this.room
+      ? this.call("remote", "send_command", { entity_id: target, command })
+      : this.call("webostv", "button", { entity_id: target, button })]);
+  }
+  private volumeEnabled(): boolean {
+    const id = this.volumeId;
+    return available(this.hass, id) && isOn(this.entity(id)) && supports(this.entity(id), Feature.VOLUME_STEP);
   }
   private volume(direction: "up" | "down"): void {
-    const id = volumePlayer(this.config);
+    const id = this.volumeId;
     if (!id || !this.volumeEnabled()) return;
     this.send("volume", accepted, [this.call("media_player", `volume_${direction}`, { entity_id: id })]);
   }
   private toggleMute(): void {
-    const id = volumePlayer(this.config);
+    const id = this.volumeId;
     if (!id || !this.volumeEnabled()) return;
     const target = !muted(this.entity(id));
     this.send("mute", (s) => muted(s[id]) === target,
       [this.call("media_player", "volume_mute", { entity_id: id, is_volume_muted: target })]);
   }
-  private volumeEnabled(): boolean {
-    const id = volumePlayer(this.config);
-    return available(this.hass, id) && isOn(this.entity(id)) && supports(this.entity(id), Feature.VOLUME_STEP);
-  }
   private selectSoundMode(mode: string): void {
-    const id = this.config.receiver;
+    const id = this.receiverId;
     if (!id || !available(this.hass, id)) return;
     this.send("sound_mode", (s) => s[id]?.attributes.sound_mode === mode,
       [this.call("media_player", "select_sound_mode", { entity_id: id, sound_mode: mode })]);
   }
   private useReceiver(): void {
-    const tv = this.config.tv;
+    const room = this.room;
+    const tv = this.tvId;
     if (!tv || !available(this.hass, tv)) return;
     this.send("output", (s) => s[tv]?.attributes.sound_output === RECEIVER_OUTPUT,
-      [this.call("webostv", "select_sound_output", { entity_id: tv, sound_output: RECEIVER_OUTPUT })]);
+      [room
+        ? this.call("home_theater", "use_receiver", { entity_id: room })
+        : this.call("webostv", "select_sound_output", { entity_id: tv, sound_output: RECEIVER_OUTPUT })]);
   }
+  // ----- dialogs and navigation
+
   private open(kind: "sources" | "configure", event: Event): void {
     this.trigger = event.currentTarget as HTMLElement;
     this.dialogKind = kind;
@@ -272,19 +380,26 @@ export class HomeTheaterCard extends LitElement {
       composed: true,
     }));
   }
+  private openIntegration(): void {
+    this.close();
+    history.pushState(null, "", INTEGRATION_PAGE);
+    window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+  }
+  // ----- rendering
+
   private status(): string {
-    const { tv, receiver } = this.config;
-    if (!available(this.hass, tv) && !available(this.hass, receiver)) return this.t("unavailable");
+    if (!this.anyAvailable) return this.t("unavailable");
     if (this.requests.pending("power") || this.requests.pending("source")) return this.t("pending");
-    if (!roomOn(this.config, this.hass)) return this.t("off");
-    const active = activeSource(this.config, this.hass);
-    const known = active && favourites(this.config, this.hass).find((s) => sameSource(active, s));
-    const parts = [known ? this.sourceName(known) : active?.source ?? this.t("on")];
-    const player = this.entity(volumePlayer(this.config));
+    if (!this.on) return this.t("off");
+    const active = this.chips(false).find((c) => c.active) ?? this.chips(true).find((c) => c.active);
+    const parts: string[] = [];
+    if (this.room) parts.push(text(this.roomAttr("source")) ?? this.t("on"));
+    else parts.push(active?.label ?? activeSource(this.config, this.hass)?.source ?? this.t("on"));
+    const player = this.entity(this.volumeId);
     if (isOn(player)) {
-      const db = volumeDb(player);
+      const db = this.receiverId ? volumeDb(player) : undefined;
       if (muted(player)) parts.push(this.t("muted"));
-      else if (this.config.receiver && db !== undefined) parts.push(formatDb(this.hass, db));
+      else if (db !== undefined) parts.push(formatDb(this.hass, db));
     }
     return parts.join(" · ");
   }
@@ -297,7 +412,7 @@ export class HomeTheaterCard extends LitElement {
       : nothing;
   }
   private arcWarning() {
-    if (!arcProblem(this.config, this.hass)) return nothing;
+    if (!this.audioProblem()) return nothing;
     return html`<div class="warning" role="status">
       <ha-icon .icon=${"mdi:speaker-off"}></ha-icon>
       <span>${this.t("arcProblem")}</span>
@@ -305,24 +420,35 @@ export class HomeTheaterCard extends LitElement {
         @click=${() => this.useReceiver()}>${this.t("useReceiver")}</button>
     </div>`;
   }
-  private chip(source: SourceConfig, active: boolean) {
-    const name = this.sourceName(source);
-    return html`<button class="chip" data-action="source" data-device=${source.device}
-      data-source=${source.source} aria-pressed=${String(active)}
-      aria-label=${active ? `${this.t("playing")}: ${name}` : `${this.t("switchTo")} ${name}`}
-      title=${name} ?disabled=${!this.sourceEnabled(source)}
-      @click=${() => this.selectSource(source)}>
-      <ha-icon .icon=${source.icon || sourceIcon(source)}></ha-icon>
-      <span>${name}</span>
+  private nowPlaying() {
+    if (!this.room || !this.on) return nothing;
+    const attributes = this.entity(this.room)?.attributes ?? {};
+    const title = text(attributes.media_title);
+    if (!title) return nothing;
+    const episode = [text(attributes.media_series_title), text(attributes.media_artist), text(attributes.app_name)]
+      .find((value) => value);
+    const picture = text(attributes.entity_picture);
+    return html`<div class="now-playing" data-now-playing>
+      ${picture ? html`<img src=${picture} alt="" />` : html`<ha-icon .icon=${"mdi:play-circle-outline"}></ha-icon>`}
+      <div class="titles"><strong>${title}</strong>${episode ? html`<span class="status">${episode}</span>` : nothing}</div>
+    </div>`;
+  }
+  private chip(chip: Chip) {
+    return html`<button class="chip" data-action="source" data-device=${chip.device ?? "room"}
+      data-source=${chip.source} aria-pressed=${String(chip.active)}
+      aria-label=${chip.active ? `${this.t("playing")}: ${chip.label}` : `${this.t("switchTo")} ${chip.label}`}
+      title=${chip.label} ?disabled=${!chip.enabled}
+      @click=${() => chip.select()}>
+      <ha-icon .icon=${chip.icon}></ha-icon>
+      <span>${chip.label}</span>
     </button>`;
   }
   private sources() {
-    const list = favourites(this.config, this.hass);
-    const active = roomOn(this.config, this.hass) ? activeSource(this.config, this.hass) : undefined;
-    const more = allSources(this.config, this.hass).length > list.length;
+    const list = this.chips(false);
+    const more = this.chips(true).some((c) => !list.some((f) => f.key === c.key));
     if (!list.length && !more) return nothing;
     return html`<div class="sources" role="group" aria-label=${this.t("sources")}>
-      ${list.map((s) => this.chip(s, sameSource(active, s)))}
+      ${list.map((c) => this.chip(c))}
       ${more ? html`<button class="chip more" data-action="all-sources" title=${this.t("allSources")}
         @click=${(e: Event) => this.open("sources", e)}>
         <ha-icon .icon=${"mdi:dots-horizontal"}></ha-icon><span>${this.t("allSources")}</span>
@@ -330,29 +456,28 @@ export class HomeTheaterCard extends LitElement {
     </div>`;
   }
   private dpad() {
-    const tv = this.config.tv;
-    if (!tv || !isOn(this.entity(tv))) return nothing;
-    const disabled = !available(this.hass, tv);
+    const target = this.dpadTarget();
+    if (!target) return nothing;
+    const disabled = !available(this.hass, target);
     return html`<div class="navigation" role="group" aria-label=${this.t("navigation")}>
       <div class="dpad">
         ${DPAD.map(([key, button, icon]) => html`<button class=${`pad ${key}`} data-action=${`dpad-${key}`}
           aria-label=${this.t(key)} title=${this.t(key)} ?disabled=${disabled}
-          @click=${() => this.press(button)}>${icon ? html`<ha-icon .icon=${icon}></ha-icon>` : this.t("ok")}</button>`)}
+          @click=${() => this.press(key, button)}>${icon ? html`<ha-icon .icon=${icon}></ha-icon>` : this.t("ok")}</button>`)}
       </div>
       <div class="nav-keys">
         <button class="round" data-action="dpad-back" aria-label=${this.t("back")} title=${this.t("back")}
-          ?disabled=${disabled} @click=${() => this.press("BACK")}><ha-icon .icon=${"mdi:arrow-u-left-top"}></ha-icon></button>
+          ?disabled=${disabled} @click=${() => this.press("back", "BACK")}><ha-icon .icon=${"mdi:arrow-u-left-top"}></ha-icon></button>
         <button class="round" data-action="dpad-home" aria-label=${this.t("home")} title=${this.t("home")}
-          ?disabled=${disabled} @click=${() => this.press("HOME")}><ha-icon .icon=${"mdi:home-outline"}></ha-icon></button>
+          ?disabled=${disabled} @click=${() => this.press("home", "HOME")}><ha-icon .icon=${"mdi:home-outline"}></ha-icon></button>
       </div>
     </div>`;
   }
   private volumeControls() {
-    const id = volumePlayer(this.config);
-    const player = this.entity(id);
+    const player = this.entity(this.volumeId);
     if (!isOn(player) || !supports(player, Feature.VOLUME_STEP)) return nothing;
     const enabled = this.volumeEnabled();
-    const db = this.config.receiver ? volumeDb(player) : undefined;
+    const db = this.receiverId ? volumeDb(player) : undefined;
     const isMuted = muted(player);
     return html`<div class="volume" role="group" aria-label=${this.t("volume")}>
       <button class="round" data-action="volume-up" aria-label=${this.t("volumeUp")} title=${this.t("volumeUp")}
@@ -367,24 +492,22 @@ export class HomeTheaterCard extends LitElement {
     </div>`;
   }
   private sourcesDialog() {
-    const active = roomOn(this.config, this.hass) ? activeSource(this.config, this.hass) : undefined;
-    const all = allSources(this.config, this.hass);
+    const all = this.chips(true);
+    if (this.room) return html`<div class="sources">${all.map((c) => this.chip(c))}</div>`;
     const group = (device: SourceConfig["device"], label: TextKey) => {
-      const list = all.filter((s) => s.device === device);
+      const list = all.filter((c) => c.device === device);
       return list.length ? html`<h3>${this.t(label)}</h3>
-        <div class="sources">${list.map((s) => {
-          const named = this.config.sources?.find((f) => sameSource(s, f)) ?? s;
-          return this.chip(named, sameSource(active, s));
-        })}</div>` : nothing;
+        <div class="sources">${list.map((c) => this.chip(c))}</div>` : nothing;
     };
     return html`${group("receiver", "receiverInputs")}${group("tv", "tvSources")}`;
   }
   private configureDialog() {
-    const { tv, receiver } = this.config;
+    const tv = this.tvId;
+    const receiver = this.receiverId;
     const receiverEntity = this.entity(receiver);
     const modes = soundModes(receiverEntity);
     const mode = currentSoundMode(receiverEntity);
-    const output = soundOutput(this.entity(tv));
+    const output = this.room ? text(this.roomAttr("tv_sound_output")) : soundOutput(this.entity(tv));
     const device = (id: string | undefined, label: TextKey) => id ? html`<div class="device">
       <span><strong>${this.t(label)}</strong><span class="status">${available(this.hass, id)
         ? this.t(isOn(this.entity(id)) ? "on" : "off") : this.t("unavailable")}</span></span>
@@ -401,9 +524,11 @@ export class HomeTheaterCard extends LitElement {
         <p class="status" data-output=${output ?? ""}>${output ? outputLabel(this.hass, output) : this.t(isOn(this.entity(tv)) ? "unavailable" : "off")}</p>
         ${this.arcWarning()}
         <p class="hint">${this.t("arcHint")}</p>` : nothing}
-      ${tv && this.entity(tv) && !this.canTurnOnTv() ? html`<p class="hint" data-hint="tv-power">${this.t("tvPowerHint")}</p>` : nothing}
-      ${tv || receiver ? html`<h3>${this.t("devices")}</h3>${device(tv, "tv")}${device(receiver, "receiver")}` : nothing}
-      <p class="hint">${this.t("configureHelp")}</p>`;
+      ${tv && this.entity(tv) && !this.canTurnOnTv() ? html`<p class="hint" data-hint="tv-power">${this.t(this.room ? "tvPowerHintTheater" : "tvPowerHint")}</p>` : nothing}
+      ${this.configured ? html`<h3>${this.t("devices")}</h3>${device(this.room, "room")}${device(tv, "tv")}${device(receiver, "receiver")}` : nothing}
+      ${this.room ? html`<div class="controls-row"><button class="action primary" data-action="integration"
+        @click=${() => this.openIntegration()}><ha-icon .icon=${"mdi:cog-outline"}></ha-icon>${this.t("integrationSettings")}</button></div>` : nothing}
+      <p class="hint">${this.t(this.room ? "configureHelpTheater" : "configureHelp")}</p>`;
   }
   private dialog() {
     if (!this.dialogKind) return nothing;
@@ -420,9 +545,8 @@ export class HomeTheaterCard extends LitElement {
     </dialog>`;
   }
   protected render() {
-    const { tv, receiver } = this.config;
-    const on = roomOn(this.config, this.hass);
-    const configured = !!(tv || receiver);
+    const on = this.on;
+    const configured = this.configured;
     return html`<ha-card data-state=${on ? "on" : "off"}>
       <header>
         <div class="heading">
@@ -443,6 +567,7 @@ export class HomeTheaterCard extends LitElement {
       </header>
       ${this.error()}
       ${!configured ? html`<p class="hint">${this.t("setup")}</p>` : html`
+        ${this.nowPlaying()}
         ${this.arcWarning()}
         ${this.sources()}
         ${on ? html`<div class="controls">${this.dpad()}${this.volumeControls()}</div>` : nothing}`}

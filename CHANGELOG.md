@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 — 2026-09-26
+
+- Add **Home Theater room**: bind the card to a room from the Home Theater integration (0.2.0 or later) instead of the TV and receiver.
+- In that mode, show what is playing with artwork, keep sources while the room is off, send arrow keys to the active player's remote, and link Configure to the integration's settings.
+- Recognize Chromecast sources with a cast icon.
+
 ## 0.1.0 — 2026-09-26
 
 - First release: one card per room for an LG webOS TV and an AV receiver.

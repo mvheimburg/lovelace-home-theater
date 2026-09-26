@@ -7,6 +7,7 @@ const GUESSES: Array<[RegExp, string]> = [
   [/plex/i, "mdi:plex"],
   [/twitch/i, "mdi:twitch"],
   [/apple\s*tv|airplay/i, "mdi:apple"],
+  [/chromecast|google\s*tv|\bcast\b/i, "mdi:cast"],
   [/live\s*tv|^tv$|tuner|antenna/i, "mdi:television-classic"],
   [/game|playstation|ps\d|xbox|switch|nintendo/i, "mdi:gamepad-variant-outline"],
   [/cbl|sat|cable|decoder|set.?top/i, "mdi:satellite-variant"],
@@ -17,7 +18,7 @@ const GUESSES: Array<[RegExp, string]> = [
   [/\b(radio|fm|am|dab|tuner)\b/i, "mdi:radio"],
   [/heos|online|network|music/i, "mdi:music-box-outline"],
   [/tv audio/i, "mdi:television-speaker"],
-  [/media player|chromecast|shield|fire\s*tv|roku/i, "mdi:play-box-outline"],
+  [/media player|shield|fire\s*tv|roku/i, "mdi:play-box-outline"],
   [/aux|usb/i, "mdi:usb-port"],
   [/hdmi|input|\bav\b/i, "mdi:video-input-hdmi"],
 ];

@@ -44,3 +44,38 @@ export const config = (): CardConfig => ({
   receiver: "media_player.avr",
   tv_input: "HDMI 1",
 });
+/** A room from the Home Theater integration, as its media player reports it. */
+export const room = (value = "playing", attributes: Record<string, unknown> = {}) =>
+  state("media_player.stue_theater", value, {
+    friendly_name: "Stue Home theater",
+    supported_features: 128 | 256 | 2048 | 1024 | 4 | 8 | 1 | 16384,
+    ...(value === "off" ? {} : {
+      source: "Chromecast",
+      source_list: ["Chromecast", "PlayStation", "NRK TV", "Netflix"],
+      volume_level: 0.45,
+      is_volume_muted: false,
+      media_title: "Episode 4",
+      media_series_title: "A Series",
+      app_name: "YouTube",
+      entity_picture: "/api/media_player_proxy/media_player.cast?token=x",
+    }),
+    tv: "media_player.tv",
+    receiver: "media_player.avr",
+    sources: ["Chromecast", "PlayStation", "NRK TV", "Netflix"],
+    all_sources: ["Blu-ray", "Chromecast", "PlayStation", "NRK TV", "Netflix", "YouTube"],
+    can_turn_on_tv: true,
+    audio_problem: false,
+    tv_sound_output: "external_arc",
+    ...attributes,
+  });
+export function roomFixture(value = "playing"): HomeAssistant {
+  const hass = fixture();
+  hass.states["media_player.stue_theater"] = room(value);
+  hass.states["remote.stue_remote"] = state("remote.stue_remote", value === "off" ? "off" : "on");
+  hass.entities = {
+    "media_player.stue_theater": { entity_id: "media_player.stue_theater", device_id: "room1", platform: "home_theater", translation_key: "theater" },
+    "remote.stue_remote": { entity_id: "remote.stue_remote", device_id: "room1", platform: "home_theater", translation_key: "remote" },
+    "remote.other": { entity_id: "remote.other", device_id: "room2", platform: "home_theater", translation_key: "remote" },
+  };
+  return hass;
+}

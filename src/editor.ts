@@ -131,7 +131,7 @@ export class HomeTheaterEditor extends LitElement {
   private change(update: (next: CardConfig) => void): void {
     const next = structuredClone(this.config);
     update(next);
-    for (const key of ["title", "icon", "tv", "receiver", "tv_input", "tv_audio"])
+    for (const key of ["title", "icon", "theater", "tv", "receiver", "tv_input", "tv_audio"])
       if (next[key] === "" || next[key] === undefined) delete next[key];
     this.config = next;
     try {
@@ -167,9 +167,10 @@ export class HomeTheaterEditor extends LitElement {
       ${help ? html`<small>${this.t(help)}</small>` : nothing}
     </label>`;
   }
-  private player(key: "tv" | "receiver", label: TextKey): TemplateResult {
+  private player(key: "theater" | "tv" | "receiver", label: TextKey): TemplateResult {
+    const filter = { theater: { integration: "home_theater" }, tv: { integration: "webostv" }, receiver: {} }[key];
     return html`<ha-selector data-field=${key} .hass=${this.hass}
-      .selector=${{ entity: key === "tv" ? { domain: "media_player", integration: "webostv" } : { domain: "media_player" } }}
+      .selector=${{ entity: { domain: "media_player", ...filter } }}
       .value=${this.config[key] || undefined} .label=${this.t(label)}
       @value-changed=${(e: CustomEvent<{ value?: string }>) => {
         e.stopPropagation();
@@ -222,11 +223,14 @@ export class HomeTheaterEditor extends LitElement {
     const sources = this.config.sources ?? [];
     const tvSources = sourceList(entityOf(this.hass, this.config.tv));
     const receiverSources = sourceList(entityOf(this.hass, this.config.receiver));
+    const room = !!this.config.theater;
     return html`
       <p>${this.t("editorHelp")}</p>
-      ${this.player("tv", "tvEntity")}
-      ${this.player("receiver", "receiverEntity")}
-      ${this.config.tv && this.config.receiver ? html`<div class="fields">
+      ${this.player("theater", "theaterEntity")}
+      <small>${this.t("theaterHelp")}</small>
+      ${room ? nothing : html`${this.player("tv", "tvEntity")}
+      ${this.player("receiver", "receiverEntity")}`}
+      ${!room && this.config.tv && this.config.receiver ? html`<div class="fields">
         ${this.choice("tv_input", "tvInput", tvSources, this.config.tv_input,
           (value) => this.change((c) => { c.tv_input = value; }), "none", "tvInputHelp")}
         ${this.choice("tv_audio", "tvAudio", receiverSources, this.config.tv_audio ?? DEFAULT_TV_AUDIO,
@@ -252,7 +256,7 @@ export class HomeTheaterEditor extends LitElement {
           </select>
         </label>
       </div>
-      <fieldset>
+      ${room ? nothing : html`<fieldset>
         <legend>${this.t("favourites")}</legend>
         <small>${this.t("favouritesHelp")}</small>
         ${sources.some((s) => !s.source) ? html`<p class="error" role="alert">${this.t("incomplete")}</p>` : nothing}
@@ -261,7 +265,7 @@ export class HomeTheaterEditor extends LitElement {
           @click=${() => this.change((c) => {
             c.sources = [...(c.sources ?? []), { device: c.receiver ? "receiver" : "tv", source: "" }];
           })}>${this.t("addSource")}</button>
-      </fieldset>
+      </fieldset>`}
     `;
   }
 }

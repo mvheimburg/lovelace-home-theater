@@ -32,7 +32,7 @@ export function normalizeConfig(input: unknown): CardConfig {
   const c = object(input);
   if (c.type !== TYPE) throw new ConfigValidationError("invalidType");
   for (const key of ["title", "icon", "tv_input", "tv_audio"]) optional(c, key);
-  for (const key of ["tv", "receiver"])
+  for (const key of ["theater", "tv", "receiver"])
     if (c[key] !== undefined && (typeof c[key] !== "string" || !PLAYER.test(c[key] as string)))
       throw new ConfigValidationError("invalidPlayer");
   if (

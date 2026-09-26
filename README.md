@@ -6,7 +6,24 @@ A Home Assistant dashboard card for a TV and AV receiver: one power button, sour
 
 Use one card per room instead of a full remote replica. It shows only what a household needs every day: turn the room on or off, pick what to watch, move around menus and set the volume. It works with the LG webOS TV and Denon AVR (Denon/Marantz) integrations that ship with Home Assistant, with no companion integration. Default and Bubble appearances follow your dashboard, with the same color schemes as the other household cards.
 
-![Two rooms with a TV and receiver each, with simulated Home Assistant states](docs/home-theater-card.png)
+## With the Home Theater integration
+
+The card works on its own with a TV and a receiver. With the [Home Theater integration](https://github.com/mvheimburg/home-theater) (0.2.0 or later), choose the room's media player as **Home Theater room** in the card editor instead. The card then:
+
+- shows **what is actually playing**, with the title, series and artwork of the player on the active input (for example a Chromecast or Music Assistant player);
+- keeps the **sources while the room is off**. Home Assistant hides a player's source list while it is off, so a card bound directly to the devices has only its configured favourites then;
+- sends **arrow keys to the active player's remote** (Android TV Remote, Apple TV) when one is linked, and to the TV otherwise;
+- leaves power and source sequencing, retries and **Wake-on-LAN** to the integration, so they work the same from automations and voice.
+
+Devices, how they connect, favourite sources, display names and linked players then live under **Settings → Devices & services → Home Theater → Configure**; the card's Configure dialog links there. Title, icon, appearance and color scheme stay in the card editor.
+
+```yaml
+type: custom:home-theater-card
+title: Stue
+theater: media_player.stue_theater
+```
+
+![A room from the Home Theater integration with what is playing, next to rooms bound directly to their devices](docs/home-theater-card.png)
 
 ## What it does
 
@@ -70,6 +87,7 @@ sources:
 | --- | --- | --- |
 | `title` | TV | Room title. |
 | `icon` | `mdi:television` | Header icon. |
+| `theater` | — | A Home Theater integration room (`media_player`). When set, `tv`, `receiver`, `tv_input`, `tv_audio` and `sources` are ignored; the integration owns them. |
 | `tv` | — | LG webOS `media_player`. Arrows need it. |
 | `receiver` | — | AV receiver `media_player`. Volume goes here when set. |
 | `tv_input` | none | TV input carrying the receiver's picture. Selected when you pick a receiver source; never shown as a source. |

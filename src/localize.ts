@@ -48,6 +48,15 @@ const en = {
     "If the receiver stays silent on TV apps, turn on HDMI control (CEC/SIMPLINK) and ARC on both the TV and the receiver, and connect the receiver's ARC output to the TV's ARC/eARC input.",
   tvPowerHint:
     "Home Assistant cannot turn this TV on yet. Add an automation for the TV's “Device is requested to turn on” trigger that sends a Wake-on-LAN packet.",
+  theaterEntity: "Home Theater room",
+  theaterHelp:
+    "Optional. A room from the Home Theater integration shows what is playing, keeps sources while the room is off and sends arrow keys to the active player. The integration then owns the TV, receiver, sources and linked players: set them under Settings → Devices & services → Home Theater → Configure.",
+  integrationSettings: "Home Theater settings",
+  room: "Room",
+  tvPowerHintTheater:
+    "Home Assistant cannot turn this TV on yet. Add the TV's MAC address under the Home Theater integration's Configure.",
+  configureHelpTheater:
+    "Sources, their names and the players linked to them are set in the Home Theater integration. Title and appearance are set in this card's visual editor.",
   devices: "Devices",
   tv: "TV",
   receiver: "Receiver",
@@ -148,6 +157,15 @@ const nb: Record<keyof typeof en, string> = {
     "Hvis mottakeren er stille på TV-apper: slå på HDMI-styring (CEC/SIMPLINK) og ARC både på TV-en og mottakeren, og koble mottakerens ARC-utgang til TV-ens ARC/eARC-inngang.",
   tvPowerHint:
     "Home Assistant kan ikke slå på denne TV-en ennå. Legg til en automasjon for TV-ens utløser «Enheten blir bedt om å slå seg på» som sender en Wake-on-LAN-pakke.",
+  theaterEntity: "Hjemmekino-rom",
+  theaterHelp:
+    "Valgfritt. Et rom fra Hjemmekino-integrasjonen viser hva som spilles, beholder kildene mens rommet er av og sender piltastene til spilleren som er i bruk. Integrasjonen eier da TV, mottaker, kilder og koblede spillere: sett dem under Innstillinger → Enheter og tjenester → Hjemmekino → Konfigurer.",
+  integrationSettings: "Innstillinger for hjemmekino",
+  room: "Rom",
+  tvPowerHintTheater:
+    "Home Assistant kan ikke slå på denne TV-en ennå. Legg inn TV-ens MAC-adresse under Konfigurer for Hjemmekino-integrasjonen.",
+  configureHelpTheater:
+    "Kilder, navnene deres og spillerne som er koblet til dem, settes i Hjemmekino-integrasjonen. Tittel og utseende settes i kortets visuelle editor.",
   devices: "Enheter",
   tv: "TV",
   receiver: "Mottaker",

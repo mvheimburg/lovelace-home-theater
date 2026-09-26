@@ -176,6 +176,47 @@ export const styles = [
     .chip.more {
       color: var(--ht-muted);
     }
+    .now-playing {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      margin: 0 0 12px;
+      padding: 6px;
+      border-radius: 18px;
+      background: var(--ht-pill);
+    }
+    .now-playing img {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 12px;
+      flex: none;
+    }
+    .now-playing > ha-icon {
+      width: 64px;
+      height: 64px;
+      --mdc-icon-size: 32px;
+      color: var(--ht-muted);
+      flex: none;
+    }
+    .now-playing strong {
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .controls-row {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 16px;
+    }
+    .action.primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: color-mix(in srgb, var(--ht-accent) 22%, var(--ht-pill));
+    }
     .controls {
       display: flex;
       align-items: center;

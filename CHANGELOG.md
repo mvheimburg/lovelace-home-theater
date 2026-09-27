@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.4.1 — 2026-09-27
+## 0.5.0 — 2026-09-27
 
+- Add optional **scene buttons**: choose scenes or scripts in the card editor, such as film-night lighting. The card shows them only when some are configured.
 - Bokmål: call the receiver «forsterker» instead of «mottaker».
 
 ## 0.4.0 — 2026-09-27

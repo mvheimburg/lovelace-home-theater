@@ -21,6 +21,10 @@ Devices, how they connect, favourite sources, display names and linked players t
 type: custom:home-theater-card
 title: Stue
 theater: media_player.stue_theater
+scenes:
+  - entity: scene.kinokveld
+  - entity: script.lights_up
+    name: Lys på
 ```
 
 ![A room from the Home Theater integration with what is playing, next to rooms bound directly to their devices](docs/home-theater-card.png)
@@ -36,6 +40,7 @@ theater: media_player.stue_theater
 - **Arrows, OK, Back and Home** go to the TV while it is on. The LG passes them on over HDMI-CEC (SIMPLINK) to many players on its current input.
 - **Volume** steps and mute go to the receiver, shown in the receiver's own dB figures.
 - **ARC check**: when a receiver is configured and the TV reports that it is playing through its own speakers, the card says so and offers **Send to receiver**.
+- **Scene buttons** (optional) activate scenes or scripts you choose in the card editor, such as dimmed lights for a film night. They appear only when you add some.
 - **Configure** (cog) holds the receiver's sound modes, the TV's current sound output with the ARC fix, device details, and a hint when Home Assistant cannot turn the TV on.
 
 The card only calls the players' public services. The integrations and your devices stay authoritative. Actions wait for Home Assistant to confirm them, show failures, and are disabled while a device is unavailable.
@@ -94,6 +99,7 @@ sources:
 | `tv_input` | none | TV input carrying the receiver's picture. Selected when you pick a receiver source; never shown as a source. |
 | `tv_audio` | `TV Audio` | Receiver input that plays the TV's sound over ARC. Selected when you pick a TV source; never shown as a source. |
 | `sources` | receiver inputs + Live TV | Favourites: `device` (`receiver` or `tv`), `source` (exact name from that player's source list), optional `name` and `icon`. |
+| `scenes` | none | Scene buttons: `entity` (`scene.*` or `script.*`), optional `name` and `icon`. Shown only when set. |
 | `appearance` | `default` | `default` or `bubble`; Bubble Card need not be installed. |
 | `color_scheme` | `home-assistant` | `home-assistant`, `bright`, `warm`, `mint`, `sky` or `lavender`. |
 

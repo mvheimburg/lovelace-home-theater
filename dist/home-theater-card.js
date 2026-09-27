@@ -75,7 +75,19 @@ function normalizeConfig(input) {
         optional(s, "icon");
         return { ...s, device: s.device, source: s.source };
     });
+    if (c.scenes !== undefined && !Array.isArray(c.scenes))
+        throw new ConfigValidationError("invalidScenes");
+    const scenes = c.scenes?.map((value) => {
+        const s = object(value);
+        if (typeof s.entity !== "string" || !/^(scene|script)\.[a-z0-9_]+$/.test(s.entity))
+            throw new ConfigValidationError("invalidScene");
+        optional(s, "name");
+        optional(s, "icon");
+        return { ...s, entity: s.entity };
+    });
     const config = { ...c, type: TYPE };
+    if (scenes)
+        config.scenes = scenes;
     if (sources)
         config.sources = sources;
     return config;
@@ -136,6 +148,14 @@ const en = {
     room: "Room",
     tvPowerHintTheater: "Home Assistant cannot turn this TV on yet. Add the TV's MAC address under the Home Theater integration's Configure.",
     configureHelpTheater: "Sources, their names and the players linked to them are set in the Home Theater integration. Title and appearance are set in this card's visual editor.",
+    scenes: "Scenes",
+    scenesHelp: "Optional buttons for scenes or scripts, such as dimming the lights for a film night. The card shows them only when you add some.",
+    addScene: "Add scene",
+    sceneEntity: "Scene or script",
+    invalidScenes: "Scenes must be a list.",
+    invalidScene: "Choose a scene or script (scene.* or script.*).",
+    incompleteScene: "Choose a scene or remove each empty scene row. Until then, your latest editor changes are not passed to the dashboard.",
+    activate: "Activate",
     devices: "Devices",
     tv: "TV",
     receiver: "Receiver",
@@ -236,6 +256,14 @@ const nb = {
     room: "Rom",
     tvPowerHintTheater: "Home Assistant kan ikke slå på denne TV-en ennå. Legg inn TV-ens MAC-adresse under Konfigurer for Hjemmekino-integrasjonen.",
     configureHelpTheater: "Kilder, navnene deres og spillerne som er koblet til dem, settes i Hjemmekino-integrasjonen. Tittel og utseende settes i kortets visuelle editor.",
+    scenes: "Scener",
+    scenesHelp: "Valgfrie knapper for scener eller skript, for eksempel å dempe lyset til kinokveld. Kortet viser dem bare når du har lagt til noen.",
+    addScene: "Legg til scene",
+    sceneEntity: "Scene eller skript",
+    invalidScenes: "Scener må være en liste.",
+    invalidScene: "Velg en scene eller et skript (scene.* eller script.*).",
+    incompleteScene: "Velg en scene eller fjern hver tomme scenerad. Frem til da blir de siste endringene i editoren ikke sendt til dashbordet.",
+    activate: "Aktiver",
     devices: "Enheter",
     tv: "TV",
     receiver: "Forsterker",
@@ -898,6 +926,19 @@ const styles = [
       gap: 8px;
       background: color-mix(in srgb, var(--ht-accent) 22%, var(--ht-pill));
     }
+    .scenes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .chip.scene {
+      flex: 0 1 auto;
+      border: 1px dashed color-mix(in srgb, var(--ht-accent) 45%, transparent);
+    }
+    .chip.scene[aria-busy="true"] {
+      background: color-mix(in srgb, var(--ht-accent) 22%, var(--ht-pill));
+    }
     .controls {
       display: flex;
       align-items: center;
@@ -1406,6 +1447,16 @@ class HomeTheaterCard extends i$1 {
                 ? this.call("home_theater", "use_receiver", { entity_id: room })
                 : this.call("webostv", "select_sound_output", { entity_id: tv, sound_output: RECEIVER_OUTPUT })]);
     }
+    /** A never-used scene reports "unknown", so only a missing or unavailable one is blocked. */
+    sceneReady(id) {
+        const entity = this.entity(id);
+        return !!entity && this.hass?.connection?.connected !== false && entity.state !== "unavailable";
+    }
+    activate(id) {
+        if (!this.sceneReady(id))
+            return;
+        this.send(`scene:${id}`, accepted, [this.call(id.split(".")[0], "turn_on", { entity_id: id })]);
+    }
     // ----- dialogs and navigation
     open(kind, event) {
         this.trigger = event.currentTarget;
@@ -1549,6 +1600,26 @@ class HomeTheaterCard extends i$1 {
       </button>` : A}
     </div>`;
     }
+    scenes() {
+        const list = this.config.scenes ?? [];
+        if (!list.length)
+            return A;
+        return b `<div class="scenes" role="group" aria-label=${this.t("scenes")}>
+      ${list.map((scene) => {
+            const entity = this.entity(scene.entity);
+            const name = scene.name || text(entity?.attributes.friendly_name) || scene.entity;
+            const icon = scene.icon || text(entity?.attributes.icon) ||
+                (scene.entity.startsWith("script.") ? "mdi:script-text-outline" : "mdi:palette-outline");
+            const busy = this.busy(`scene:${scene.entity}`);
+            return b `<button class="chip scene" data-action="scene" data-entity=${scene.entity}
+          aria-label=${`${this.t("activate")}: ${name}`} title=${`${this.t("activate")}: ${name}`}
+          aria-busy=${String(busy)} ?disabled=${busy || !this.sceneReady(scene.entity)}
+          @click=${() => this.activate(scene.entity)}>
+          <ha-icon .icon=${icon}></ha-icon><span>${name}</span>
+        </button>`;
+        })}
+    </div>`;
+    }
     dpad() {
         const target = this.dpadTarget();
         if (!target)
@@ -1669,6 +1740,7 @@ class HomeTheaterCard extends i$1 {
         ${this.nowPlaying()}
         ${this.arcWarning()}
         ${this.sources()}
+        ${this.scenes()}
         ${on ? b `<div class="controls">${this.dpad()}${this.volumeControls()}</div>` : A}`}
       ${this.dialog()}
     </ha-card>`;
@@ -1825,10 +1897,42 @@ class HomeTheaterEditor extends i$1 {
       </div>
     </div>`;
     }
+    sceneRow(scene, index, count) {
+        const name = scene.name || scene.entity || this.t("sceneEntity");
+        const edit = (update) => this.change((c) => update(c.scenes[index]));
+        return b `<div class="source-row" data-scene=${index}>
+      <ha-selector .hass=${this.hass} .selector=${{ entity: { domain: ["scene", "script"] } }}
+        .value=${scene.entity || undefined} .label=${this.t("sceneEntity")}
+        @value-changed=${(e) => {
+            e.stopPropagation();
+            edit((s) => { s.entity = e.detail.value ?? ""; });
+        }}></ha-selector>
+      <div class="fields">
+        ${this.text(`scene-name-${index}`, "name", scene.name, (value) => edit((s) => { if (value)
+            s.name = value;
+        else
+            delete s.name; }))}
+        ${this.text(`scene-icon-${index}`, "icon", scene.icon, (value) => edit((s) => { if (value)
+            s.icon = value;
+        else
+            delete s.icon; }))}
+      </div>
+      <div class="tools">
+        ${this.tool("scene-up", "moveUp", "mdi:arrow-up", index === 0, () => this.change((c) => this.move(c.scenes, index, -1)), name)}
+        ${this.tool("scene-down", "moveDown", "mdi:arrow-down", index === count - 1, () => this.change((c) => this.move(c.scenes, index, 1)), name)}
+        ${this.tool("remove-scene", "remove", "mdi:delete-outline", false, () => this.change((c) => {
+            c.scenes.splice(index, 1);
+            if (!c.scenes.length)
+                delete c.scenes;
+        }), name)}
+      </div>
+    </div>`;
+    }
     render() {
         if (this.configError)
             return b `<p class="error" role="alert">${this.t(this.configError)} ${this.t("invalidConfig")}</p>`;
         const sources = this.config.sources ?? [];
+        const scenes = this.config.scenes ?? [];
         const tvSources = sourceList(entityOf(this.hass, this.config.tv));
         const receiverSources = sourceList(entityOf(this.hass, this.config.receiver));
         const room = !!this.config.theater;
@@ -1877,6 +1981,14 @@ class HomeTheaterEditor extends i$1 {
           </select>
         </label>
       </div>
+      <fieldset>
+        <legend>${this.t("scenes")}</legend>
+        <small>${this.t("scenesHelp")}</small>
+        ${scenes.some((s) => !s.entity) ? b `<p class="error" role="alert">${this.t("incompleteScene")}</p>` : A}
+        ${scenes.map((scene, i) => this.sceneRow(scene, i, scenes.length))}
+        <button class="add" data-action="add-scene"
+          @click=${() => this.change((c) => { c.scenes = [...(c.scenes ?? []), { entity: "" }]; })}>${this.t("addScene")}</button>
+      </fieldset>
       ${room ? A : b `<details class="direct" ?open=${!!(this.config.tv || this.config.receiver)}>
         <summary>${this.t("withoutIntegration")}</summary>
         ${direct}

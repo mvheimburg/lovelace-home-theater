@@ -12,6 +12,7 @@ import {
   colorSchemes,
   type CardConfig,
   type HomeAssistant,
+  type SceneConfig,
   type SourceConfig,
 } from "./types";
 /** Edits only Lovelace configuration. HA's dashboard owns Save and Cancel. */
@@ -229,10 +230,35 @@ export class HomeTheaterEditor extends LitElement {
       </div>
     </div>`;
   }
+  private sceneRow(scene: SceneConfig, index: number, count: number) {
+    const name = scene.name || scene.entity || this.t("sceneEntity");
+    const edit = (update: (s: SceneConfig) => void) => this.change((c) => update(c.scenes![index]));
+    return html`<div class="source-row" data-scene=${index}>
+      <ha-selector .hass=${this.hass} .selector=${{ entity: { domain: ["scene", "script"] } }}
+        .value=${scene.entity || undefined} .label=${this.t("sceneEntity")}
+        @value-changed=${(e: CustomEvent<{ value?: string }>) => {
+          e.stopPropagation();
+          edit((s) => { s.entity = e.detail.value ?? ""; });
+        }}></ha-selector>
+      <div class="fields">
+        ${this.text(`scene-name-${index}`, "name", scene.name, (value) => edit((s) => { if (value) s.name = value; else delete s.name; }))}
+        ${this.text(`scene-icon-${index}`, "icon", scene.icon, (value) => edit((s) => { if (value) s.icon = value; else delete s.icon; }))}
+      </div>
+      <div class="tools">
+        ${this.tool("scene-up", "moveUp", "mdi:arrow-up", index === 0, () => this.change((c) => this.move(c.scenes!, index, -1)), name)}
+        ${this.tool("scene-down", "moveDown", "mdi:arrow-down", index === count - 1, () => this.change((c) => this.move(c.scenes!, index, 1)), name)}
+        ${this.tool("remove-scene", "remove", "mdi:delete-outline", false, () => this.change((c) => {
+          c.scenes!.splice(index, 1);
+          if (!c.scenes!.length) delete c.scenes;
+        }), name)}
+      </div>
+    </div>`;
+  }
   protected render() {
     if (this.configError)
       return html`<p class="error" role="alert">${this.t(this.configError)} ${this.t("invalidConfig")}</p>`;
     const sources = this.config.sources ?? [];
+    const scenes = this.config.scenes ?? [];
     const tvSources = sourceList(entityOf(this.hass, this.config.tv));
     const receiverSources = sourceList(entityOf(this.hass, this.config.receiver));
     const room = !!this.config.theater;
@@ -280,6 +306,14 @@ export class HomeTheaterEditor extends LitElement {
           </select>
         </label>
       </div>
+      <fieldset>
+        <legend>${this.t("scenes")}</legend>
+        <small>${this.t("scenesHelp")}</small>
+        ${scenes.some((s) => !s.entity) ? html`<p class="error" role="alert">${this.t("incompleteScene")}</p>` : nothing}
+        ${scenes.map((scene, i) => this.sceneRow(scene, i, scenes.length))}
+        <button class="add" data-action="add-scene"
+          @click=${() => this.change((c) => { c.scenes = [...(c.scenes ?? []), { entity: "" }]; })}>${this.t("addScene")}</button>
+      </fieldset>
       ${room ? nothing : html`<details class="direct" ?open=${!!(this.config.tv || this.config.receiver)}>
         <summary>${this.t("withoutIntegration")}</summary>
         ${direct}

@@ -60,6 +60,16 @@ const en = {
     "Home Assistant cannot turn this TV on yet. Add the TV's MAC address under the Home Theater integration's Configure.",
   configureHelpTheater:
     "Sources, their names and the players linked to them are set in the Home Theater integration. Title and appearance are set in this card's visual editor.",
+  scenes: "Scenes",
+  scenesHelp:
+    "Optional buttons for scenes or scripts, such as dimming the lights for a film night. The card shows them only when you add some.",
+  addScene: "Add scene",
+  sceneEntity: "Scene or script",
+  invalidScenes: "Scenes must be a list.",
+  invalidScene: "Choose a scene or script (scene.* or script.*).",
+  incompleteScene:
+    "Choose a scene or remove each empty scene row. Until then, your latest editor changes are not passed to the dashboard.",
+  activate: "Activate",
   devices: "Devices",
   tv: "TV",
   receiver: "Receiver",
@@ -172,6 +182,16 @@ const nb: Record<keyof typeof en, string> = {
     "Home Assistant kan ikke slå på denne TV-en ennå. Legg inn TV-ens MAC-adresse under Konfigurer for Hjemmekino-integrasjonen.",
   configureHelpTheater:
     "Kilder, navnene deres og spillerne som er koblet til dem, settes i Hjemmekino-integrasjonen. Tittel og utseende settes i kortets visuelle editor.",
+  scenes: "Scener",
+  scenesHelp:
+    "Valgfrie knapper for scener eller skript, for eksempel å dempe lyset til kinokveld. Kortet viser dem bare når du har lagt til noen.",
+  addScene: "Legg til scene",
+  sceneEntity: "Scene eller skript",
+  invalidScenes: "Scener må være en liste.",
+  invalidScene: "Velg en scene eller et skript (scene.* eller script.*).",
+  incompleteScene:
+    "Velg en scene eller fjern hver tomme scenerad. Frem til da blir de siste endringene i editoren ikke sendt til dashbordet.",
+  activate: "Aktiver",
   devices: "Enheter",
   tv: "TV",
   receiver: "Forsterker",

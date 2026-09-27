@@ -269,6 +269,19 @@ export const styles = [
       gap: 8px;
       background: color-mix(in srgb, var(--ht-accent) 22%, var(--ht-pill));
     }
+    .scenes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .chip.scene {
+      flex: 0 1 auto;
+      border: 1px dashed color-mix(in srgb, var(--ht-accent) 45%, transparent);
+    }
+    .chip.scene[aria-busy="true"] {
+      background: color-mix(in srgb, var(--ht-accent) 22%, var(--ht-pill));
+    }
     .controls {
       display: flex;
       align-items: center;

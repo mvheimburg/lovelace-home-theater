@@ -382,6 +382,15 @@ export class HomeTheaterCard extends LitElement {
         ? this.call("home_theater", "use_receiver", { entity_id: room })
         : this.call("webostv", "select_sound_output", { entity_id: tv, sound_output: RECEIVER_OUTPUT })]);
   }
+  /** A never-used scene reports "unknown", so only a missing or unavailable one is blocked. */
+  private sceneReady(id: string): boolean {
+    const entity = this.entity(id);
+    return !!entity && this.hass?.connection?.connected !== false && entity.state !== "unavailable";
+  }
+  private activate(id: string): void {
+    if (!this.sceneReady(id)) return;
+    this.send(`scene:${id}`, accepted, [this.call(id.split(".")[0], "turn_on", { entity_id: id })]);
+  }
   // ----- dialogs and navigation
 
   private open(kind: "sources" | "configure", event: Event): void {
@@ -511,6 +520,25 @@ export class HomeTheaterCard extends LitElement {
       </button>` : nothing}
     </div>`;
   }
+  private scenes() {
+    const list = this.config.scenes ?? [];
+    if (!list.length) return nothing;
+    return html`<div class="scenes" role="group" aria-label=${this.t("scenes")}>
+      ${list.map((scene) => {
+        const entity = this.entity(scene.entity);
+        const name = scene.name || text(entity?.attributes.friendly_name) || scene.entity;
+        const icon = scene.icon || text(entity?.attributes.icon) ||
+          (scene.entity.startsWith("script.") ? "mdi:script-text-outline" : "mdi:palette-outline");
+        const busy = this.busy(`scene:${scene.entity}`);
+        return html`<button class="chip scene" data-action="scene" data-entity=${scene.entity}
+          aria-label=${`${this.t("activate")}: ${name}`} title=${`${this.t("activate")}: ${name}`}
+          aria-busy=${String(busy)} ?disabled=${busy || !this.sceneReady(scene.entity)}
+          @click=${() => this.activate(scene.entity)}>
+          <ha-icon .icon=${icon}></ha-icon><span>${name}</span>
+        </button>`;
+      })}
+    </div>`;
+  }
   private dpad() {
     const target = this.dpadTarget();
     if (!target) return nothing;
@@ -627,6 +655,7 @@ export class HomeTheaterCard extends LitElement {
         ${this.nowPlaying()}
         ${this.arcWarning()}
         ${this.sources()}
+        ${this.scenes()}
         ${on ? html`<div class="controls">${this.dpad()}${this.volumeControls()}</div>` : nothing}`}
       ${this.dialog()}
     </ha-card>`;

@@ -1,6 +1,7 @@
 import {
   colorSchemes,
   type CardConfig,
+  type SceneConfig,
   type SourceConfig,
 } from "./types";
 export type ConfigErrorCode =
@@ -11,7 +12,9 @@ export type ConfigErrorCode =
   | "invalidPlayer"
   | "invalidSources"
   | "invalidSource"
-  | "invalidText";
+  | "invalidText"
+  | "invalidScenes"
+  | "invalidScene";
 export class ConfigValidationError extends Error {
   constructor(readonly code: ConfigErrorCode) {
     super(code);
@@ -55,7 +58,18 @@ export function normalizeConfig(input: unknown): CardConfig {
     optional(s, "icon");
     return { ...s, device: s.device as SourceConfig["device"], source: s.source };
   });
+  if (c.scenes !== undefined && !Array.isArray(c.scenes))
+    throw new ConfigValidationError("invalidScenes");
+  const scenes = (c.scenes as unknown[] | undefined)?.map((value): SceneConfig => {
+    const s = object(value);
+    if (typeof s.entity !== "string" || !/^(scene|script)\.[a-z0-9_]+$/.test(s.entity))
+      throw new ConfigValidationError("invalidScene");
+    optional(s, "name");
+    optional(s, "icon");
+    return { ...s, entity: s.entity };
+  });
   const config: CardConfig = { ...c, type: TYPE };
+  if (scenes) config.scenes = scenes;
   if (sources) config.sources = sources;
   return config;
 }

@@ -43,6 +43,8 @@ player("media_player.room_3", true, {
 player("media_player.tv_3", true, { friendly_name: "TV", supported_features: TV_FEATURES, source: "HDMI 1", sound_output: "external_arc" });
 player("media_player.avr_3", false, { friendly_name: "Receiver", supported_features: AVR_FEATURES, sound_mode_list: modes, sound_mode: "MOVIE", source: "Media Player", volume_level: 0.41 });
 player("remote.room_3", true, {});
+states["scene.film_night"] = { entity_id: "scene.film_night", state: "unknown", attributes: { friendly_name: "Kinokveld", icon: "mdi:movie-open-outline" } };
+states["scene.lights_up"] = { entity_id: "scene.lights_up", state: "unknown", attributes: { friendly_name: "Lys på", icon: "mdi:lightbulb-on-outline" } };
 const entities = {
   "media_player.room_3": { entity_id: "media_player.room_3", device_id: "room3", platform: "home_theater" },
   "remote.room_3": { entity_id: "remote.room_3", device_id: "room3", platform: "home_theater" },
@@ -88,7 +90,7 @@ function apply(domain: string, service: string, data: Record<string, unknown>) {
   if (service === "volume_mute") attributes.is_volume_muted = data.is_volume_muted;
   if (service === "volume_up" || service === "volume_down")
     attributes.volume_level = Math.round(((attributes.volume_level as number) + (service === "volume_up" ? 0.005 : -0.005)) * 1000) / 1000;
-  if (domain === "webostv" && service === "button") return;
+  if ((domain === "webostv" && service === "button") || domain === "scene") return;
   states[id] = { ...entity, state, attributes };
   render();
 }
@@ -117,6 +119,7 @@ const configs: CardConfig[] = [
     title: "Hjemmekino",
     icon: "mdi:theater",
     theater: "media_player.room_3",
+    scenes: [{ entity: "scene.film_night" }, { entity: "scene.lights_up" }],
   },
   {
     type: "custom:home-theater-card",

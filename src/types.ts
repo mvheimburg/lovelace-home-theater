@@ -16,6 +16,12 @@ export interface SourceConfig {
   name?: string;
   icon?: string;
 }
+/** A shortcut to a scene or script, such as film-night lighting. */
+export interface SceneConfig {
+  entity: string;
+  name?: string;
+  icon?: string;
+}
 export interface CardConfig {
   type: "custom:home-theater-card";
   title?: string;
@@ -31,6 +37,7 @@ export interface CardConfig {
   /** The receiver input that plays the TV's own sound over ARC, such as "TV Audio". */
   tv_audio?: string;
   sources?: SourceConfig[];
+  scenes?: SceneConfig[];
   appearance?: "default" | "bubble";
   color_scheme?: ColorScheme;
   [key: string]: unknown;

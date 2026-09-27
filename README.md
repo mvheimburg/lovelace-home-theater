@@ -28,6 +28,7 @@ theater: media_player.stue_theater
 ## What it does
 
 - **Power** in the header turns the TV and receiver on or off together.
+- **TV and receiver pills** under the header show whether each device is on. Tap one to turn just that device on or off, for example the receiver when only the TV came on.
 - **Sources** are chips for your favourites, with every other receiver input and TV app one tap away under **All sources**. Picking a source switches both devices:
   - a *receiver input* (Apple TV, game console, Blu-ray…) selects that input on the receiver and puts the TV on the HDMI input the receiver is connected to;
   - a *TV input or app* (Netflix, NRK TV, Live TV…) starts it on the TV and switches the receiver to its TV audio input, so the sound comes back over ARC.

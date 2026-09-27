@@ -176,6 +176,50 @@ export const styles = [
     .chip.more {
       color: var(--ht-muted);
     }
+    .devices {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: -4px 0 12px;
+    }
+    .device-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px 0 10px;
+      border-radius: 22px;
+      background: var(--ht-pill);
+      font-size: 12px;
+      border: 1px solid transparent;
+    }
+    .device-pill ha-icon {
+      --mdc-icon-size: 18px;
+      color: var(--ht-muted);
+    }
+    .device-pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ht-muted);
+      opacity: 0.5;
+    }
+    .device-pill .state {
+      color: var(--ht-muted);
+    }
+    .device-pill[data-state="on"] .dot {
+      background: var(--success-color, #28723c);
+      opacity: 1;
+    }
+    .device-pill[data-state="on"] ha-icon {
+      color: var(--ht-accent);
+    }
+    .device-pill[data-state="unavailable"] .dot {
+      background: var(--error-color, #bd2635);
+      opacity: 1;
+    }
+    .device-pill[data-missing] {
+      border-color: var(--warning-color, #8c6100);
+    }
     .now-playing {
       display: flex;
       align-items: center;

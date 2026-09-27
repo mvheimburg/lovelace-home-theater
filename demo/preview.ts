@@ -41,7 +41,7 @@ player("media_player.room_3", true, {
   can_turn_on_tv: true, audio_problem: false, tv_sound_output: "external_arc",
 });
 player("media_player.tv_3", true, { friendly_name: "TV", supported_features: TV_FEATURES, source: "HDMI 1", sound_output: "external_arc" });
-player("media_player.avr_3", true, { friendly_name: "Receiver", supported_features: AVR_FEATURES, sound_mode_list: modes, sound_mode: "MOVIE", source: "Media Player", volume_level: 0.41 });
+player("media_player.avr_3", false, { friendly_name: "Receiver", supported_features: AVR_FEATURES, sound_mode_list: modes, sound_mode: "MOVIE", source: "Media Player", volume_level: 0.41 });
 player("remote.room_3", true, {});
 const entities = {
   "media_player.room_3": { entity_id: "media_player.room_3", device_id: "room3", platform: "home_theater" },

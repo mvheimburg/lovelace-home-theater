@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0 — 2026-09-27
+
+- Show the TV and the receiver as separate on/off pills under the header. Tap one to turn just that device on or off; a device that is off while the other is on is outlined.
+- With a Home Theater room, turning one device on goes through the room, so the TV can wake with Wake-on-LAN.
+
 ## 0.3.0 — 2026-09-26
 
 - A new card is bound to a Home Theater room straight away, and takes the room's name as its title unless you set one.

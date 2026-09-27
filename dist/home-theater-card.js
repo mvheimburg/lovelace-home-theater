@@ -331,6 +331,7 @@ function formatDb(hass, value) {
 const Feature = {
     VOLUME_MUTE: 8,
     TURN_ON: 128,
+    TURN_OFF: 256,
     VOLUME_STEP: 1024,
     SELECT_SOUND_MODE: 65536,
 };
@@ -804,6 +805,50 @@ const styles = [
     .chip.more {
       color: var(--ht-muted);
     }
+    .devices {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: -4px 0 12px;
+    }
+    .device-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px 0 10px;
+      border-radius: 22px;
+      background: var(--ht-pill);
+      font-size: 12px;
+      border: 1px solid transparent;
+    }
+    .device-pill ha-icon {
+      --mdc-icon-size: 18px;
+      color: var(--ht-muted);
+    }
+    .device-pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ht-muted);
+      opacity: 0.5;
+    }
+    .device-pill .state {
+      color: var(--ht-muted);
+    }
+    .device-pill[data-state="on"] .dot {
+      background: var(--success-color, #28723c);
+      opacity: 1;
+    }
+    .device-pill[data-state="on"] ha-icon {
+      color: var(--ht-accent);
+    }
+    .device-pill[data-state="unavailable"] .dot {
+      background: var(--error-color, #bd2635);
+      opacity: 1;
+    }
+    .device-pill[data-missing] {
+      border-color: var(--warning-color, #8c6100);
+    }
     .now-playing {
       display: flex;
       align-items: center;
@@ -1214,6 +1259,23 @@ class HomeTheaterCard extends i$1 {
         const target = receiver && available(this.hass, receiver) ? receiver : tv;
         this.send("power", (s) => isOn(s[target]), steps);
     }
+    /** One device on or off. Turning one on goes through the room, which wakes only what is off. */
+    deviceEnabled(id, tv) {
+        if (!id || this.busy("power") || !available(this.hass, id))
+            return false;
+        if (isOn(this.entity(id)))
+            return supports(this.entity(id), Feature.TURN_OFF);
+        if (this.room)
+            return available(this.hass, this.room) && (!tv || this.canTurnOnTv());
+        return supports(this.entity(id), Feature.TURN_ON);
+    }
+    toggleDevice(id, tv) {
+        if (!id || !this.deviceEnabled(id, tv))
+            return;
+        const on = isOn(this.entity(id));
+        const target = !on && this.room ? this.room : id;
+        this.send("power", (s) => isOn(s[id]) !== on, [this.call("media_player", on ? "turn_off" : "turn_on", { entity_id: target })]);
+    }
     // ----- sources
     chips(all) {
         const room = this.room;
@@ -1408,6 +1470,30 @@ class HomeTheaterCard extends i$1 {
         @click=${() => this.useReceiver()}>${this.t("useReceiver")}</button>
     </div>`;
     }
+    devices() {
+        const tv = this.tvId;
+        const receiver = this.receiverId;
+        if (!tv || !receiver)
+            return A;
+        const pill = (id, label, icon, isTv) => {
+            const on = isOn(this.entity(id));
+            const state = available(this.hass, id) ? (on ? "on" : "off") : "unavailable";
+            const status = this.t(state === "unavailable" ? "unavailable" : state);
+            // Worth a nudge: the other device is on and this one is not.
+            const missing = !on && state !== "unavailable" && this.on;
+            return b `<button class="device-pill" data-action=${`device-${label}`} data-state=${state}
+        aria-pressed=${String(on)} ?data-missing=${missing}
+        aria-label=${`${this.t(on ? "turnOff" : "turnOn")}: ${this.t(label)} (${status})`}
+        title=${`${this.t(on ? "turnOff" : "turnOn")}: ${this.t(label)}`}
+        ?disabled=${!this.deviceEnabled(id, isTv)} @click=${() => this.toggleDevice(id, isTv)}>
+        <ha-icon .icon=${icon}></ha-icon><span>${this.t(label)}</span>
+        <span class="dot" aria-hidden="true"></span><span class="state">${status}</span>
+      </button>`;
+        };
+        return b `<div class="devices" role="group" aria-label=${this.t("devices")}>
+      ${pill(tv, "tv", "mdi:television", true)}${pill(receiver, "receiver", "mdi:amplifier", false)}
+    </div>`;
+    }
     nowPlaying() {
         if (!this.room || !this.on)
             return A;
@@ -1562,6 +1648,7 @@ class HomeTheaterCard extends i$1 {
       </header>
       ${this.error()}
       ${!configured ? b `<p class="hint">${this.t("setup")}</p>` : b `
+        ${this.devices()}
         ${this.nowPlaying()}
         ${this.arcWarning()}
         ${this.sources()}

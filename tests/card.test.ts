@@ -179,3 +179,12 @@ it("reports configuration errors in the card and prompts for setup", async () =>
   expect($(card, ".hint").textContent).toContain("visual card editor");
   expect($(card, '[data-action="power"]')).toBeNull();
 });
+it("turns one device on directly when it supports it", async () => {
+  const card = await mount(fixture("on", "off"));
+  expect($(card, '[data-action="device-tv"]').disabled).toBe(false);
+  await click(card, '[data-action="device-receiver"]');
+  expect(card.hass!.callService).toHaveBeenCalledExactlyOnceWith("media_player", "turn_on", { entity_id: "media_player.avr" });
+  const off = await mount(fixture("off", "on"));
+  // webOS without Wake-on-LAN cannot be turned on from Home Assistant.
+  expect($(off, '[data-action="device-tv"]').disabled).toBe(true);
+});

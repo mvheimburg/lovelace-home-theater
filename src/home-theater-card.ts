@@ -251,6 +251,20 @@ export class HomeTheaterCard extends LitElement {
     const target = receiver && available(this.hass, receiver) ? receiver : tv!;
     this.send("power", (s) => isOn(s[target]), steps);
   }
+  /** One device on or off. Turning one on goes through the room, which wakes only what is off. */
+  private deviceEnabled(id: string | undefined, tv: boolean): boolean {
+    if (!id || this.busy("power") || !available(this.hass, id)) return false;
+    if (isOn(this.entity(id))) return supports(this.entity(id), Feature.TURN_OFF);
+    if (this.room) return available(this.hass, this.room) && (!tv || this.canTurnOnTv());
+    return supports(this.entity(id), Feature.TURN_ON);
+  }
+  private toggleDevice(id: string | undefined, tv: boolean): void {
+    if (!id || !this.deviceEnabled(id, tv)) return;
+    const on = isOn(this.entity(id));
+    const target = !on && this.room ? this.room : id;
+    this.send("power", (s) => isOn(s[id]) !== on,
+      [this.call("media_player", on ? "turn_off" : "turn_on", { entity_id: target })]);
+  }
   // ----- sources
 
   private chips(all: boolean): Chip[] {
@@ -431,6 +445,29 @@ export class HomeTheaterCard extends LitElement {
         @click=${() => this.useReceiver()}>${this.t("useReceiver")}</button>
     </div>`;
   }
+  private devices() {
+    const tv = this.tvId;
+    const receiver = this.receiverId;
+    if (!tv || !receiver) return nothing;
+    const pill = (id: string, label: TextKey, icon: string, isTv: boolean) => {
+      const on = isOn(this.entity(id));
+      const state = available(this.hass, id) ? (on ? "on" : "off") : "unavailable";
+      const status = this.t(state === "unavailable" ? "unavailable" : state);
+      // Worth a nudge: the other device is on and this one is not.
+      const missing = !on && state !== "unavailable" && this.on;
+      return html`<button class="device-pill" data-action=${`device-${label}`} data-state=${state}
+        aria-pressed=${String(on)} ?data-missing=${missing}
+        aria-label=${`${this.t(on ? "turnOff" : "turnOn")}: ${this.t(label)} (${status})`}
+        title=${`${this.t(on ? "turnOff" : "turnOn")}: ${this.t(label)}`}
+        ?disabled=${!this.deviceEnabled(id, isTv)} @click=${() => this.toggleDevice(id, isTv)}>
+        <ha-icon .icon=${icon}></ha-icon><span>${this.t(label)}</span>
+        <span class="dot" aria-hidden="true"></span><span class="state">${status}</span>
+      </button>`;
+    };
+    return html`<div class="devices" role="group" aria-label=${this.t("devices")}>
+      ${pill(tv, "tv", "mdi:television", true)}${pill(receiver, "receiver", "mdi:amplifier", false)}
+    </div>`;
+  }
   private nowPlaying() {
     if (!this.room || !this.on) return nothing;
     const attributes = this.entity(this.room)?.attributes ?? {};
@@ -578,6 +615,7 @@ export class HomeTheaterCard extends LitElement {
       </header>
       ${this.error()}
       ${!configured ? html`<p class="hint">${this.t("setup")}</p>` : html`
+        ${this.devices()}
         ${this.nowPlaying()}
         ${this.arcWarning()}
         ${this.sources()}

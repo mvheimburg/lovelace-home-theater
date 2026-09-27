@@ -1,6 +1,6 @@
 {
   "name": "lovelace-home-theater",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A Home Assistant dashboard card for a TV and AV receiver: one power button, source selection, arrows and volume.",
   "type": "module",
   "scripts": {

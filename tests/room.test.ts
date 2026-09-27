@@ -1,7 +1,7 @@
 import { it, expect, vi, afterEach } from "vitest";
 import { HomeTheaterCard } from "../src/home-theater-card";
 import { HomeTheaterEditor } from "../src/editor";
-import { room, roomFixture } from "./fixture";
+import { receiver, room, roomFixture, tv as tvState } from "./fixture";
 import type { HomeAssistant } from "../src/types";
 afterEach(() => document.body.replaceChildren());
 const CONFIG = { type: "custom:home-theater-card" as const, theater: "media_player.stue_theater" };
@@ -158,4 +158,31 @@ it("keeps direct device setup behind a collapsed section", async () => {
   editor.setConfig({ type: "custom:home-theater-card", tv: "media_player.tv" });
   await editor.updateComplete;
   expect($<HTMLDetailsElement>(editor, "details.direct").open).toBe(true);
+});
+it("shows each device's power and turns a missing one on through the room", async () => {
+  const hass = roomFixture();
+  hass.states["media_player.avr"] = receiver("off");
+  const card = await mount(hass);
+  const tv = $(card, '[data-action="device-tv"]');
+  const avr = $(card, '[data-action="device-receiver"]');
+  expect(tv.getAttribute("data-state")).toBe("on");
+  expect(tv.textContent).toContain("On");
+  expect(avr.getAttribute("data-state")).toBe("off");
+  expect(avr.hasAttribute("data-missing")).toBe(true);
+  expect(avr.getAttribute("aria-label")).toBe("Turn on: Receiver (Off)");
+  await click(card, '[data-action="device-receiver"]');
+  expect(card.hass!.callService).toHaveBeenCalledExactlyOnceWith("media_player", "turn_on", { entity_id: "media_player.stue_theater" });
+  expect($(card, '[data-action="device-tv"]').disabled).toBe(true);
+  await update(card, "media_player.avr", receiver());
+  expect($(card, '[data-action="device-receiver"]').getAttribute("data-state")).toBe("on");
+  await click(card, '[data-action="device-tv"]');
+  expect(card.hass!.callService).toHaveBeenLastCalledWith("media_player", "turn_off", { entity_id: "media_player.tv" });
+});
+it("does not offer to turn on a TV the room cannot wake", async () => {
+  const hass = roomFixture();
+  hass.states["media_player.tv"] = tvState("off");
+  hass.states["media_player.stue_theater"] = room("on", { can_turn_on_tv: false });
+  const card = await mount(hass);
+  expect($(card, '[data-action="device-tv"]').disabled).toBe(true);
+  expect($(card, '[data-action="device-receiver"]').disabled).toBe(false);
 });

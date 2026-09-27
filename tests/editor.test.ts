@@ -74,7 +74,7 @@ it("keeps a new favourite as a draft until a source is chosen, then orders and r
 it("localizes the editor in Bokmål and reports invalid YAML", async () => {
   const editor = await mount(config(), "nb");
   expect(editor.shadowRoot!.textContent).toContain("Favorittkilder");
-  expect($(editor, 'ha-selector[data-field="receiver"]')).toHaveProperty("label", "AV-mottaker");
+  expect($(editor, 'ha-selector[data-field="receiver"]')).toHaveProperty("label", "Forsterker");
   editor.setConfig({ type: "custom:home-theater-card", sources: "x" } as unknown as CardConfig);
   await editor.updateComplete;
   expect($(editor, '[role="alert"]').textContent).toContain("Kilder må være en liste");

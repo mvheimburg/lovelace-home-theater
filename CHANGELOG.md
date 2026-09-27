@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 — 2026-09-27
+
+- Bokmål: call the receiver «forsterker» instead of «mottaker».
+
 ## 0.4.0 — 2026-09-27
 
 - Show the TV and the receiver as separate on/off pills under the header. Tap one to turn just that device on or off; a device that is off while the other is on is outlined.

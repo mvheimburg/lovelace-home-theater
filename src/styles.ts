@@ -203,8 +203,16 @@ export const styles = [
       background: var(--ht-muted);
       opacity: 0.5;
     }
+    .device-pill {
+      max-width: 100%;
+      min-width: 0;
+    }
     .device-pill .state {
       color: var(--ht-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
     .device-pill[data-state="on"] .dot {
       background: var(--success-color, #28723c);

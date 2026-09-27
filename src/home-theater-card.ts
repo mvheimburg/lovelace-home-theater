@@ -452,7 +452,9 @@ export class HomeTheaterCard extends LitElement {
     const pill = (id: string, label: TextKey, icon: string, isTv: boolean) => {
       const on = isOn(this.entity(id));
       const state = available(this.hass, id) ? (on ? "on" : "off") : "unavailable";
-      const status = this.t(state === "unavailable" ? "unavailable" : state);
+      // An on device shows its current input, so the receiver's TV Audio is visible too.
+      const input = on ? text(this.entity(id)?.attributes.source) : undefined;
+      const status = input ?? this.t(state === "unavailable" ? "unavailable" : state);
       // Worth a nudge: the other device is on and this one is not.
       const missing = !on && state !== "unavailable" && this.on;
       return html`<button class="device-pill" data-action=${`device-${label}`} data-state=${state}
@@ -493,7 +495,13 @@ export class HomeTheaterCard extends LitElement {
   }
   private sources() {
     const list = this.chips(false);
-    const more = this.chips(true).some((c) => !list.some((f) => f.key === c.key));
+    const every = this.chips(true);
+    // What is playing stays visible even when it is not a favourite.
+    if (!list.some((c) => c.active)) {
+      const active = every.find((c) => c.active);
+      if (active) list.push(active);
+    }
+    const more = every.some((c) => !list.some((f) => f.key === c.key));
     if (!list.length && !more) return nothing;
     return html`<div class="sources" role="group" aria-label=${this.t("sources")}>
       ${list.map((c) => this.chip(c))}

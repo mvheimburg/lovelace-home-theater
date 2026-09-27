@@ -4,6 +4,8 @@
 
 - Show the TV and the receiver as separate on/off pills under the header. Tap one to turn just that device on or off; a device that is off while the other is on is outlined.
 - With a Home Theater room, turning one device on goes through the room, so the TV can wake with Wake-on-LAN.
+- An on device's pill shows its current input, such as the receiver on TV Audio.
+- The playing source is always shown and highlighted among the chips, even when it is not a favourite.
 
 ## 0.3.0 — 2026-09-26
 

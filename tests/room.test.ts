@@ -166,7 +166,7 @@ it("shows each device's power and turns a missing one on through the room", asyn
   const tv = $(card, '[data-action="device-tv"]');
   const avr = $(card, '[data-action="device-receiver"]');
   expect(tv.getAttribute("data-state")).toBe("on");
-  expect(tv.textContent).toContain("On");
+  expect(tv.querySelector(".state")!.textContent).toBe("HDMI 1");
   expect(avr.getAttribute("data-state")).toBe("off");
   expect(avr.hasAttribute("data-missing")).toBe(true);
   expect(avr.getAttribute("aria-label")).toBe("Turn on: Receiver (Off)");
@@ -175,6 +175,7 @@ it("shows each device's power and turns a missing one on through the room", asyn
   expect($(card, '[data-action="device-tv"]').disabled).toBe(true);
   await update(card, "media_player.avr", receiver());
   expect($(card, '[data-action="device-receiver"]').getAttribute("data-state")).toBe("on");
+  expect($(card, '[data-action="device-receiver"] .state').textContent).toBe("Media Player");
   await click(card, '[data-action="device-tv"]');
   expect(card.hass!.callService).toHaveBeenLastCalledWith("media_player", "turn_off", { entity_id: "media_player.tv" });
 });
@@ -185,4 +186,11 @@ it("does not offer to turn on a TV the room cannot wake", async () => {
   const card = await mount(hass);
   expect($(card, '[data-action="device-tv"]').disabled).toBe(true);
   expect($(card, '[data-action="device-receiver"]').disabled).toBe(false);
+});
+it("highlights the playing source even when it is not a favourite", async () => {
+  const hass = roomFixture();
+  hass.states["media_player.stue_theater"] = room("on", { source: "YouTube", media_title: undefined });
+  const card = await mount(hass);
+  expect($(card, chip("YouTube")).getAttribute("aria-pressed")).toBe("true");
+  expect(card.shadowRoot!.querySelectorAll('.sources [data-action="source"]')).toHaveLength(5);
 });

@@ -832,8 +832,16 @@ const styles = [
       background: var(--ht-muted);
       opacity: 0.5;
     }
+    .device-pill {
+      max-width: 100%;
+      min-width: 0;
+    }
     .device-pill .state {
       color: var(--ht-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
     .device-pill[data-state="on"] .dot {
       background: var(--success-color, #28723c);
@@ -1478,7 +1486,9 @@ class HomeTheaterCard extends i$1 {
         const pill = (id, label, icon, isTv) => {
             const on = isOn(this.entity(id));
             const state = available(this.hass, id) ? (on ? "on" : "off") : "unavailable";
-            const status = this.t(state === "unavailable" ? "unavailable" : state);
+            // An on device shows its current input, so the receiver's TV Audio is visible too.
+            const input = on ? text(this.entity(id)?.attributes.source) : undefined;
+            const status = input ?? this.t(state === "unavailable" ? "unavailable" : state);
             // Worth a nudge: the other device is on and this one is not.
             const missing = !on && state !== "unavailable" && this.on;
             return b `<button class="device-pill" data-action=${`device-${label}`} data-state=${state}
@@ -1521,7 +1531,14 @@ class HomeTheaterCard extends i$1 {
     }
     sources() {
         const list = this.chips(false);
-        const more = this.chips(true).some((c) => !list.some((f) => f.key === c.key));
+        const every = this.chips(true);
+        // What is playing stays visible even when it is not a favourite.
+        if (!list.some((c) => c.active)) {
+            const active = every.find((c) => c.active);
+            if (active)
+                list.push(active);
+        }
+        const more = every.some((c) => !list.some((f) => f.key === c.key));
         if (!list.length && !more)
             return A;
         return b `<div class="sources" role="group" aria-label=${this.t("sources")}>

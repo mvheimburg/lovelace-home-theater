@@ -188,3 +188,13 @@ it("turns one device on directly when it supports it", async () => {
   // webOS without Wake-on-LAN cannot be turned on from Home Assistant.
   expect($(off, '[data-action="device-tv"]').disabled).toBe(true);
 });
+it("shows the receiver's input and a playing app that is not a favourite", async () => {
+  const hass = fixture();
+  hass.states["media_player.avr"] = receiver("on", { source: "TV Audio" });
+  hass.states["media_player.tv"] = tv("on", { source: "NRK TV" });
+  const card = await mount(hass);
+  expect($(card, '[data-action="device-receiver"] .state').textContent).toBe("TV Audio");
+  expect($(card, '[data-action="device-tv"] .state').textContent).toBe("NRK TV");
+  expect($(card, chip("NRK TV")).getAttribute("aria-pressed")).toBe("true");
+  expect($(card, chip("TV Audio"))).toBeNull();
+});
